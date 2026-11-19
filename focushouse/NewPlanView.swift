@@ -41,6 +41,18 @@ struct NewPlanView: View {
                         .lineLimit(4...10)
                 }
 
+                if Planner.distressed(input) {
+                    Section {
+                        Label {
+                            Text("It sounds like things are really hard right now. You don't have to deal with it alone. Talk to someone you trust, or reach Samaritans of Singapore any time: call 1767 or WhatsApp 9151 1767. If you're in danger, call 995.")
+                        } icon: {
+                            Image(systemName: "heart.fill").foregroundStyle(.pink)
+                        }
+                    } footer: {
+                        Text("That line won't be added as a task.")
+                    }
+                }
+
                 Section {
                     DatePicker("Start", selection: $start, in: Date.now.addingTimeInterval(-3600)...,
                                displayedComponents: [.date, .hourAndMinute])

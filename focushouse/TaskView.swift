@@ -23,6 +23,7 @@ struct TaskView: View {
     @State private var isAddingTask = false
     @State private var sortOption: TaskSortOption = .priority
     @State private var isPlanning = false
+    @State private var editingTodo: TodoItem?
     @State private var path: [Plan] = []
 
     /// The inbox as a Today-mode dump, one to-do per line. "!" and "can wait"
@@ -70,6 +71,7 @@ struct TaskView: View {
             List {
                 ForEach(sortedTasks) { task in
                     HStack {
+                        Button { editingTodo = task } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(task.name)
 
@@ -83,6 +85,11 @@ struct TaskView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Double-tap to edit")
                         
                         Spacer()
                         
@@ -144,6 +151,7 @@ struct TaskView: View {
             .sheet(isPresented: $isAddingTask) {
                 NewTaskView()
             }
+            .sheet(item: $editingTodo) { NewTaskView(editing: $0) }
         }
     }
     

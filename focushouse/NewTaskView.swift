@@ -12,6 +12,8 @@ import SwiftData
 struct NewTaskView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(\.dismiss) var dismiss
+    /// A to-do to change instead of making a new one.
+    var editing: TodoItem?
 
     @State private var name = ""
     @State private var selectedTag = "Work"
@@ -43,7 +45,14 @@ struct NewTaskView: View {
                     }
                 }
             }
-            .pixelTitle("New Task")
+            .pixelTitle(editing == nil ? "New Task" : "Edit Task")
+            .onAppear {
+                guard let editing else { return }
+                name = editing.name
+                selectedTag = tags.contains(editing.selectedTag) ? editing.selectedTag : "Work"
+                dueDate = editing.dueDate
+                priority = editing.priority
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -61,6 +70,14 @@ struct NewTaskView: View {
     }
 
     func save() {
+        if let editing {
+            editing.name = trimmedName
+            editing.selectedTag = selectedTag
+            editing.dueDate = dueDate
+            editing.priority = priority
+            dismiss()
+            return
+        }
         let task = TodoItem(
             name: trimmedName,
             selectedTag: selectedTag,

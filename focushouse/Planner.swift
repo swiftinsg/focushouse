@@ -152,8 +152,8 @@ enum Planner {
                 await addSteps(to: &draft)
             }
             return tidied(draft)
-        } catch LanguageModelError.contextSizeExceeded {
-            throw PlannerError.tooLong
+        } catch {
+            throw friendly(error)
         }
     }
 
@@ -162,7 +162,38 @@ enum Planner {
     static func items(_ input: String) -> [String] {
         input.split(whereSeparator: { ",;\n".contains($0) })
             .map { $0.trimmingCharacters(in: .whitespaces.union(CharacterSet(charactersIn: "-•*"))) }
-            .filter { !$0.isEmpty }
+            .filter { !$0.isEmpty && !distressed($0) }
+    }
+
+    /// Words that sound like the student is really struggling ("i want to die lol
+    /// this week is too much"). Those lines are never scheduled as tasks, and New
+    /// Plan shows a support note instead.
+    // ponytail: phrase list, not a classifier; misses indirect wording, errs towards showing the note.
+    static func distressed(_ text: String) -> Bool {
+        let t = text.lowercased().replacingOccurrences(of: "’", with: "'")
+        let phrases = ["want to die", "wanna die", "kill myself", "suicid", "self harm", "self-harm", "hurt myself",
+                       "end my life", "end it all", "don't want to live", "dont want to live", "no reason to live",
+                       "cut myself", "better off dead", "better off without me"]
+        return phrases.contains(where: t.contains)   // not "kms": that's also "run 5 kms"
+    }
+
+    /// The model's errors in words a student can act on.
+    static func friendly(_ error: Error) -> Error {
+        switch error {
+        case LanguageModelError.contextSizeExceeded: PlannerError.tooLong
+        case LanguageModelError.guardrailViolation, LanguageModelError.refusal: PlannerError.blocked
+        case LanguageModelError.unsupportedLanguageOrLocale: PlannerError.language
+        case LanguageModelError.rateLimited: PlannerError.busy
+        case let e as LanguageModelSession.GenerationError:
+            switch e {
+            case .exceededContextWindowSize: PlannerError.tooLong
+            case .guardrailViolation, .refusal: PlannerError.blocked
+            case .unsupportedLanguageOrLocale: PlannerError.language
+            case .rateLimited, .concurrentRequests: PlannerError.busy
+            default: error
+            }
+        default: error
+        }
     }
 
     /// Fixes what the small model gets wrong with to-do lists: it drops items and
@@ -178,14 +209,14 @@ enum Planner {
         var claimed = Set<Int>()
         var seen: [Set<String>: Int] = [:]   // a line's words → the item it matched
         for line in lines {
-            let key = words(line)
+            let key = lineKey(line)
             guard !key.isEmpty else { continue }
             let marked = marker(line)
             if let i = seen[key] {   // a duplicate line: a mark on either counts
                 if let marked { draft.items[i].priority = marked }
                 continue
             }
-            let overlap = draft.items.map { words($0.title).intersection(key).count }
+            let overlap = draft.items.map { lineKey($0.title).intersection(key).count }
             let match = overlap.indices.filter { !claimed.contains($0) && overlap[$0] > 0 }
                 .max { overlap[$0] < overlap[$1] }
             let i: Int
@@ -215,6 +246,16 @@ enum Planner {
         let kept = draft.items.indices.filter(claimed.contains)
         draft.items = kept.map { draft.items[$0] }
         return restored.compactMap { kept.firstIndex(of: $0) }
+    }
+
+    /// What tells a to-do line apart: its words plus any numbers ("read ch 4" vs
+    /// "read ch 5" aren't duplicates), or its short words when it has nothing else
+    /// ("hw", "pe"). Empty for a line of only numbers or symbols.
+    static func lineKey(_ s: String) -> Set<String> {
+        let tokens = s.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+        var key = words(s)
+        if key.isEmpty { key = Set(tokens.filter { $0.first?.isLetter == true }) }
+        return key.isEmpty ? [] : key.union(tokens.filter { $0.allSatisfy(\.isNumber) })
     }
 
     /// Input with nothing concrete in it ("tasks", "get my stuff done today"). The
@@ -400,8 +441,8 @@ extension Planner {
             """
         do {
             return tidied(try await session.respond(to: prompt, generating: DraftPlan.self).content)
-        } catch LanguageModelError.contextSizeExceeded {
-            throw PlannerError.tooLong
+        } catch {
+            throw friendly(error)
         }
     }
 }
@@ -661,9 +702,12 @@ extension Planner {
 }
 
 enum PlannerError: LocalizedError {
-    case tooLong, vague
+    case tooLong, vague, blocked, language, busy
     var errorDescription: String? {
         switch self {
+        case .blocked: "Apple's on-device AI wouldn't plan this. Its safety filter sometimes flags normal schoolwork, like history or biology topics. Try different words, or add the tasks yourself with + in the plan."
+        case .language: "The on-device AI doesn't support this language yet. Try writing it in English."
+        case .busy: "The on-device AI is busy. Wait a moment and try again."
         case .tooLong: "That's too much text for the on-device AI at once. Try a shorter list or fewer sections."
         case .vague: "Say what you need to do, like \"maths worksheet\" or \"revise chemistry for Friday\"."
         }

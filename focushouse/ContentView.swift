@@ -106,12 +106,7 @@ private struct ProgressRing: View {
 }
 
 extension ContentView {
-    /// Deletes plans with their Calendar events and reminders.
-    private func delete(_ gone: [Plan]) {
-        CalendarSync.remove(gone.flatMap(\.tasks))
-        Reminders.cancel(gone.flatMap(\.tasks))
-        gone.forEach(context.delete)
-    }
+    private func delete(_ gone: [Plan]) { gone.forEach { $0.deletePlan() } }
 }
 
 #Preview {

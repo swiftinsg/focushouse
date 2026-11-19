@@ -9,6 +9,8 @@ struct PlanView: View {
     @AppStorage("autoAddToCalendar") private var autoAddToCalendar = false
     @AppStorage("showTimeline") private var showTimeline = false
     @State private var editing: SubtaskEdit?
+    @State private var confirmDelete = false
+    @Environment(\.dismiss) private var dismiss
 
     /// What the subtask editor sheet opens with.
     private struct SubtaskEdit: Identifiable {
@@ -71,6 +73,8 @@ struct PlanView: View {
                 .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
             }
 
+            if plan.mode == .goal { goalSection }
+
             ForEach(groups, id: \.day) { group in
                 Section {
                     ForEach(blocks(group.tasks), id: \.tasks.first!.persistentModelID) { block in
@@ -125,8 +129,63 @@ struct PlanView: View {
             }
 
             calendarSection
+
+            Section {
+                Button("Delete plan", systemImage: "trash", role: .destructive) { confirmDelete = true }
+            }
+        }
+        .confirmationDialog("Delete \(plan.title.isEmpty ? "this plan" : "“\(plan.title)”")?", isPresented: $confirmDelete,
+                            titleVisibility: .visible) {
+            Button("Delete plan", role: .destructive) {
+                plan.deletePlan()
+                dismiss()
+            }
+        } message: {
+            Text("Its tasks, reminders and Calendar events go too.")
         }
         .animation(.smooth, value: plan.ordered.map(\.start))
+    }
+
+    /// The goal itself stays editable: what it is, the study material, and the
+    /// finish date. Re-plan rebuilds the tasks from the edited goal.
+    private var goalSection: some View {
+        Section {
+            TextField("Goal", text: $plan.input, axis: .vertical)
+            DatePicker("Finish by", selection: finishBy, in: plan.start..., displayedComponents: .date)
+            if !plan.materials.isEmpty || Planner.isAvailable {
+                TextField("Study material (optional)", text: $plan.materials, axis: .vertical)
+                    .lineLimit(1...6)
+            }
+            if Planner.isAvailable {
+                Button("Re-plan from this goal", systemImage: "sparkles") {
+                    Task {
+                        await run {
+                            let draft = try await Planner.draft(for: plan, history: Reflections.history(in: plan.modelContext))
+                            // Finished tasks (and the bricks they earned) stay.
+                            if plan.tasks.contains(where: \.done) { plan.replaceRemaining(with: draft) } else { plan.replaceTasks(with: draft) }
+                        }
+                    }
+                }
+                .disabled(isWorking || plan.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        } header: {
+            Text("Goal")
+        } footer: {
+            Text(Planner.isAvailable ? "Changed the goal? Re-plan to rebuild the tasks you haven't finished."
+                                     : "Changing the finish date reschedules your tasks.")
+        }
+    }
+
+    /// The last day of the plan, as a date; setting it changes `days`.
+    private var finishBy: Binding<Date> {
+        Binding(
+            get: { Calendar.current.date(byAdding: .day, value: max(plan.days, 1) - 1, to: plan.start) ?? plan.start },
+            set: { date in
+                let cal = Calendar.current
+                plan.days = max(1, (cal.dateComponents([.day], from: cal.startOfDay(for: plan.start), to: cal.startOfDay(for: date)).day ?? 0) + 1)
+                for task in plan.tasks where task.day > plan.days { task.day = plan.days }
+                plan.reflow()
+            })
     }
 
     /// End of the plan: once the student is happy with it, add it to Calendar.

@@ -87,6 +87,13 @@ enum PlanMode: String, CaseIterable {
 }
 
 extension Plan {
+    /// Deletes the whole plan with its Calendar events and reminders.
+    @MainActor func deletePlan() {
+        CalendarSync.remove(tasks)
+        Reminders.cancel(tasks)
+        modelContext?.delete(self)
+    }
+
     /// Deletes tasks with their Calendar events and reminders, then reflows.
     @MainActor func delete(_ gone: [PlanTask]) {
         CalendarSync.remove(gone)

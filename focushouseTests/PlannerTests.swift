@@ -80,6 +80,24 @@ struct PlannerTests {
         #expect(restored == [1])
     }
 
+    @Test func shortLinesAndNumberedLinesStayApart() {
+        var hw = DraftPlan(title: "hw", items: [item("Do hw")])
+        Planner.reconcile(["hw"], in: &hw)
+        #expect(hw.items.map(\.title) == ["Do hw"])   // not dropped as unmatched
+
+        var chapters = DraftPlan(title: "x", items: [item("Read chapter 5"), item("Read chapter 4")])
+        Planner.reconcile(["read ch 4", "read ch 5", "chem tutorial 1", "chem tutorial 2"], in: &chapters)
+        #expect(chapters.items.map(\.title) == ["Read chapter 5", "Read chapter 4", "Chem tutorial 1", "Chem tutorial 2"])
+    }
+
+    @Test func distressIsNeverATask() {
+        let input = "i want to die lol this week is too much\nphysics test revision\nrun 5 kms"
+        #expect(Planner.items(input) == ["physics test revision", "run 5 kms"])
+        #expect(Planner.distressed(input))
+        #expect(Planner.distressed("I don’t want to live like this"))
+        #expect(!Planner.distressed("kill time before tuition\nshoot hoops\ndissect a frog"))
+    }
+
     @Test func vagueInputIsNotPlanned() {
         #expect(Planner.isVague("tasks"))
         #expect(Planner.isVague("get my stuff done today"))
