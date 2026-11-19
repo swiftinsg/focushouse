@@ -51,6 +51,7 @@ import EventKit
             count += 1
         }
         try store.commit()
+        for task in plan.tasks where task.eventID != nil { task.syncedAt = .now }
         return count
     }
 
@@ -65,15 +66,57 @@ import EventKit
         }
     }
 
-    /// Removes the Calendar events of tasks that are being deleted.
+    /// Removes the Calendar events of these tasks (the tasks stay in the app).
     static func remove(_ tasks: [PlanTask]) {
         guard hasAccess else { return }
-        for id in tasks.compactMap(\.eventID) {
-            if let event = store.event(withIdentifier: id) {
+        for task in tasks {
+            if let event = task.eventID.flatMap(store.event(withIdentifier:)) {
                 try? store.remove(event, span: .thisEvent, commit: false)
             }
+            task.eventID = nil
         }
         try? store.commit()
+    }
+
+    /// Every event on `day` except the ones focushouse wrote for tasks
+    /// (those show as tasks already), all-day ones first.
+    static func events(on day: Date, excluding own: Set<String>) -> [EKEvent] {
+        guard hasAccess else { return [] }
+        let start = Calendar.current.startOfDay(for: day)
+        return store.events(matching: store.predicateForEvents(withStart: start, end: start.addingTimeInterval(86_400), calendars: nil))
+            .filter { !own.contains($0.eventIdentifier ?? "") }
+            .sorted { ($0.isAllDay ? 0 : 1, $0.startDate) < ($1.isAllDay ? 0 : 1, $1.startDate) }
+    }
+
+    /// Deletes a Calendar event; `future` also deletes later repeats.
+    static func delete(_ event: EKEvent, future: Bool = false) throws {
+        try store.remove(event, span: future ? .futureEvents : .thisEvent, commit: true)
+    }
+
+    /// Two-way sync for tasks already in Calendar: an event deleted in Calendar
+    /// unlinks its task (so it isn't treated as added), and an event moved or
+    /// renamed there pins the task to the new time and title. Returns the plans
+    /// that changed, so they can be reflowed.
+    static func pull(_ tasks: [PlanTask]) -> [Plan] {
+        guard hasAccess else { return [] }   // no access looks like "deleted"; leave links alone
+        var changed: [Plan] = []
+        for task in tasks where task.eventID != nil && !task.done {
+            guard let event = store.event(withIdentifier: task.eventID!) else {
+                task.eventID = nil
+                continue
+            }
+            // Only edits made in Calendar since our last write; in-app edits not
+            // yet sent with "Update Calendar" win otherwise.
+            guard let edited = event.lastModifiedDate, edited > (task.syncedAt ?? .distantPast).addingTimeInterval(2) else { continue }
+            task.syncedAt = .now
+            let minutes = Int(event.endDate.timeIntervalSince(event.startDate) / 60)
+            guard event.startDate != task.start || minutes != task.minutes || event.title != task.title else { continue }
+            task.title = event.title ?? task.title
+            task.pinned = event.startDate
+            task.minutes = max(minutes, 5)
+            if let plan = task.plan, !changed.contains(where: { $0 === plan }) { changed.append(plan) }
+        }
+        return changed
     }
 }
 

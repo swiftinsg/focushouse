@@ -144,6 +144,7 @@ extension Date {
     var start: Date?
     var done = false
     var eventID: String?   // Calendar event, once added
+    var syncedAt: Date?    // when focushouse last wrote or read that event
     var priority = 1       // 0 high, 1 normal, 2 low
     /// The bigger item this is a subtask of ("English essay"), or empty for a standalone task.
     @Attribute(originalName: "section") var parent = ""

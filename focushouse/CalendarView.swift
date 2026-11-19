@@ -1,6 +1,7 @@
 import SwiftUI
 import TipKit
 import SwiftData
+import EventKit
 
 /// Home: a month calendar, then everything on the picked day. That's the
 /// scheduled tasks from every plan, plus inbox to-dos due that day.
@@ -8,6 +9,9 @@ struct CalendarView: View {
     @Query private var tasks: [PlanTask]
     @Query(filter: #Predicate<TodoItem> { !$0.isDone }) private var todos: [TodoItem]
     @State private var day = Date.now
+    @State private var events: [EKEvent] = []
+    @State private var deleting: EKEvent?   // a repeating event, asking which ones
+    @State private var calendarError: String?
 
     private let cal = Calendar.current
 
@@ -48,6 +52,13 @@ struct CalendarView: View {
                                 row(task)
                             }
                         }
+                        .swipeActions {
+                            if task.eventID != nil {
+                                Button("Remove from Calendar", systemImage: "calendar.badge.minus", role: .destructive) {
+                                    CalendarSync.remove([task])
+                                }
+                            }
+                        }
                     }
                     ForEach(todosOnDay) { todo in
                         HStack(spacing: 12) {
@@ -61,14 +72,61 @@ struct CalendarView: View {
                             }
                         }
                     }
-                    if tasksOnDay.isEmpty && todosOnDay.isEmpty {
+                    if tasksOnDay.isEmpty && todosOnDay.isEmpty && events.isEmpty {
                         Text("Nothing on this day").foregroundStyle(.secondary)
+                    }
+                }
+
+                if !events.isEmpty {
+                    Section("In your Calendar") {
+                        ForEach(events, id: \.calendarItemIdentifier) { event in
+                            eventRow(event)
+                                .swipeActions {
+                                    Button("Delete", systemImage: "trash", role: .destructive) {
+                                        if event.hasRecurrenceRules { deleting = event } else { delete(event) }
+                                    }
+                                }
+                        }
                     }
                 }
             }
             .pixelTitle("Calendar")
+            .task(id: day) { await loadEvents() }
+            .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in Task { await loadEvents() } }
+            .confirmationDialog("This is a repeating event.", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+                                titleVisibility: .visible, presenting: deleting) { event in
+                Button("Delete This Event Only", role: .destructive) { delete(event) }
+                Button("Delete All Future Events", role: .destructive) { delete(event, future: true) }
+            }
+            .alert("Couldn't delete", isPresented: Binding(get: { calendarError != nil }, set: { if !$0 { calendarError = nil } })) {
+                Button("OK") {}
+            } message: { Text(calendarError ?? "") }
             .navigationDestination(for: Plan.self) { PlanView(plan: $0) }
         }
+    }
+
+    private func loadEvents() async {
+        await CalendarSync.requestAccess()
+        events = CalendarSync.events(on: day, excluding: Set(tasks.compactMap(\.eventID)))
+    }
+
+    private func delete(_ event: EKEvent, future: Bool = false) {
+        do { try CalendarSync.delete(event, future: future) }
+        catch { calendarError = error.localizedDescription }
+        Task { await loadEvents() }
+    }
+
+    private func eventRow(_ event: EKEvent) -> some View {
+        HStack(spacing: 12) {
+            Rectangle().fill(Color(cgColor: event.calendar.cgColor)).frame(width: 4)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.title ?? "Event")
+                Text(event.isAllDay ? "All day · \(event.calendar.title)"
+                     : "\(event.startDate.formatted(date: .omitted, time: .shortened))–\(event.endDate.formatted(date: .omitted, time: .shortened)) · \(event.calendar.title)")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func row(_ task: PlanTask) -> some View {
@@ -128,7 +186,7 @@ struct MonthGrid: View {
                 .overlay {
                     Circle().stroke(.fill.tertiary, lineWidth: 3).opacity(count > 0 ? 1 : 0)
                     Circle().trim(from: 0, to: Self.fill(count, full: full))
-                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .stroke(Color.grass, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                 }
                 .padding(3)

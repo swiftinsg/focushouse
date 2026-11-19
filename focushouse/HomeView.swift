@@ -15,7 +15,6 @@ struct HomeView: View {
     @Namespace private var door
     @AppStorage("owned") private var ownedRaw = ""
     @AppStorage("insight") private var insight = ""
-    @AppStorage("seenOnboarding") private var seenOnboarding = false
     @AppStorage("homeTourDone") private var tourDone = false
 
     var body: some View {
@@ -89,7 +88,7 @@ struct HomeView: View {
                 .padding()
             }
             .background(Color.paper)
-            .homeTour(isOn: Binding(get: { seenOnboarding && !tourDone }, set: { tourDone = !$0 }))
+            .homeTour(isOn: Binding(get: { !tourDone }, set: { tourDone = !$0 }))
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Settings", systemImage: "gearshape") { showSettings = true }

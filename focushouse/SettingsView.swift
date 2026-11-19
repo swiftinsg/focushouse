@@ -16,7 +16,6 @@ struct SettingsView: View {
     @AppStorage("limitOff") private var limitOff = WorkLimit.offDefault
     @AppStorage("showDamage") private var showDamage = true
     @State private var pace = Planner.pace()
-    @State private var showIntro = false
 
     var body: some View {
         NavigationStack {
@@ -68,8 +67,8 @@ struct SettingsView: View {
                     Text("Rest")
                 } footer: {
                     Text(screenTimeRest
-                         ? "Each waking hour you barely use your phone (under \(RestHours.glanceMinutes) min) counts as rest. \(Int(House.restGoal / 3600)) hours a day repairs your house a step."
-                         : "Rest is time away from focushouse. Turn on Screen Time to count time away from your whole phone instead.")
+                         ? "Rest is \(Int(RestLog.minBreak / 3600)) hours or more in a row without using your phone. \(Int(House.restGoal / 3600)) hours of rest in a day repairs your house a step."
+                         : "Rest is \(Int(RestLog.minBreak / 3600)) hours or more in a row away from focushouse. It can't see other apps, so turn on Screen Time to count only time off your whole phone.")
                 }
                 Section {
                     Toggle("Show house damage on widgets", isOn: $showDamage)
@@ -115,10 +114,10 @@ struct SettingsView: View {
                          : "Real time ÷ AI estimate. ×1.5 means it takes you 50% longer; new plans adjust for it.")
                 }
                 Section {
-                    Button("Show intro") {
-                        showIntro = true
+                    Button("Show the tour again") {
                         UserDefaults.standard.set(true, forKey: "resetHints")
                         UserDefaults.standard.set(false, forKey: "homeTourDone")
+                        dismiss()
                     }
                     NavigationLink("How to connect Google Calendar") {
                         CalendarTipView()
@@ -126,11 +125,10 @@ struct SettingsView: View {
                 } header: {
                     Text("Help")
                 } footer: {
-                    Text("Replays the intro and the tour of Home.")
+                    Text("Replays the tour of Home.")
                 }
             }
             .pixelTitle("Settings")
-            .fullScreenCover(isPresented: $showIntro) { OnboardingView() }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }

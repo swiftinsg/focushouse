@@ -55,17 +55,38 @@ struct HouseTests {
         #expect(House.total(earned) == 107)   // today's 150 capped at 100
     }
 
-    @Test func restCountsWakingHoursOnlyAndIgnoresShortBreaks() {
+    @Test func restCountsOnlyThreeHourWakingStretches() {
         var r = Routine()
         r.wake = 7 * 60
         r.bed = 22 * 60
         var log = RestLog()
-        log.add(from: daysAgo(0, hour: 13), to: daysAgo(0, hour: 13).addingTimeInterval(5 * 60), routine: r)
-        #expect(log.seconds(on: now) == 0)   // 5 min isn't rest
+        log.add(from: daysAgo(0, hour: 13), to: daysAgo(0, hour: 15), routine: r)
+        #expect(log.seconds(on: now) == 0)   // 2 h isn't rest
         log.add(from: daysAgo(1, hour: 20), to: daysAgo(0, hour: 9), routine: r)   // overnight
-        #expect(log.seconds(on: daysAgo(1)) == 2 * 3600)   // 8 PM–10 PM
-        #expect(log.seconds(on: now) == 2 * 3600)          // 7 AM–9 AM, sleep skipped
+        #expect(log.seconds(on: daysAgo(1)) == 0)   // only 2 h awake each side
+        #expect(log.seconds(on: now) == 0)
+        log.add(from: daysAgo(1, hour: 18), to: daysAgo(0, hour: 10), routine: r)
+        #expect(log.seconds(on: daysAgo(1)) == 4 * 3600)   // 6 PM–10 PM
+        #expect(log.seconds(on: now) == 3 * 3600)          // 7 AM–10 AM, sleep skipped
         #expect(RestLog.load(log.data) == log)
+    }
+
+    @Test func screenTimeRestNeedsThreeHoursInARow() {
+        var log = RestLog()
+        var run = RestRun()
+        let at = { (h: Int) in daysAgo(0, hour: h) }
+        log.restedHour(endingAt: at(9), run: &run)
+        log.restedHour(endingAt: at(10), run: &run)
+        #expect(log.seconds(on: now) == 0)            // 2 h in a row
+        run = RestRun()                               // phone used 10–11
+        log.restedHour(endingAt: at(12), run: &run)
+        log.restedHour(endingAt: at(13), run: &run)
+        log.restedHour(endingAt: at(14), run: &run)
+        #expect(log.seconds(on: now) == 3 * 3600)     // the 3 h stretch counts
+        log.restedHour(endingAt: at(15), run: &run)
+        #expect(log.seconds(on: now) == 4 * 3600)     // and each hour after
+        log.restedHour(endingAt: at(18), run: &run)   // gap: starts a new run
+        #expect(run.hours == 1 && log.seconds(on: now) == 4 * 3600)
     }
 
     @Test func restHoursAreHourlyBlocksCappedAtTwenty() {

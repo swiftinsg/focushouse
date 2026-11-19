@@ -40,6 +40,11 @@ struct ContentView: View {
                                     }
                                 }
                             }
+                            if plan.tasks.contains(where: { $0.eventID != nil }) {
+                                Button("Remove from Calendar", systemImage: "calendar.badge.minus", role: .destructive) {
+                                    CalendarSync.remove(plan.tasks)
+                                }
+                            }
                         }
                         Button("Delete plan", systemImage: "trash", role: .destructive) { delete([plan]) }
                     }

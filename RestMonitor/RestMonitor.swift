@@ -3,8 +3,8 @@ import Foundation
 import WidgetKit
 
 /// Screen Time runs this in the background at the start and end of each waking
-/// hour focushouse watches. If the phone was used less than
-/// `RestHours.glanceMinutes` that hour, it counts as an hour of rest.
+/// hour focushouse watches. Hours with no phone use build a run; only runs of
+/// `RestLog.minBreak` (3h) or more count as rest.
 // ponytail: Screen Time callbacks can be late or skipped; a missed hour just
 // isn't counted, which errs on the side of less rest.
 final class RestMonitor: DeviceActivityMonitor {
@@ -19,11 +19,16 @@ final class RestMonitor: DeviceActivityMonitor {
     }
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
-        guard !RestLog.defaults.bool(forKey: usedKey(activity)) else { return }
-        // Phone down during a task still on the schedule, or a lesson, isn't rest.
         let now = Date.now
-        guard !WidgetSnapshot.load().blocksRest(from: now.addingTimeInterval(-3600), to: now) else { return }
-        RestLog.update { $0.add(3600, on: now.addingTimeInterval(-60)) }
+        // Phone used, or phone down during a scheduled task or lesson: not rest, run over.
+        guard !RestLog.defaults.bool(forKey: usedKey(activity)),
+              !WidgetSnapshot.load().blocksRest(from: now.addingTimeInterval(-3600), to: now) else {
+            RestRun().save()
+            return
+        }
+        var run = RestRun.load()
+        RestLog.update { $0.restedHour(endingAt: now, run: &run) }
+        run.save()
         WidgetCenter.shared.reloadAllTimelines()
     }
 }

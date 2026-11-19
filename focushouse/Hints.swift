@@ -16,10 +16,6 @@ struct Hint: Tip {
         self.image = Image(systemName: symbol)
     }
 
-    /// Set once the intro pages are closed, so labels never pop up behind them.
-    @Parameter static var introDone: Bool = false
-    var rules: [Rule] { [#Rule(Self.$introDone) { $0 }] }
-
     static let calendar = Hint("calendar", "Your month", "Tap a day to see its events and tasks.", "calendar")
 
     /// Reads the "Show intro" request from last session; call before `Tips.configure`.
@@ -30,6 +26,5 @@ struct Hint: Tip {
             d.removeObject(forKey: "resetHints")
         }
         try? Tips.configure()
-        introDone = d.bool(forKey: "seenOnboarding")
     }
 }

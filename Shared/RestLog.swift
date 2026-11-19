@@ -5,8 +5,8 @@ import Foundation
 struct RestLog: Codable, Equatable {
     static let group = "group.sg.swiftin.2am"
     static var defaults: UserDefaults { UserDefaults(suiteName: group) ?? .standard }
-    /// A shorter time away doesn't count as rest at all.
-    static let minBreak: TimeInterval = 30 * 60
+    /// Rest only counts in unbroken phone-free stretches this long or longer.
+    static let minBreak: TimeInterval = 3 * 3600
 
     var seconds: [String: TimeInterval] = [:]
 
@@ -32,7 +32,7 @@ struct RestLog: Codable, Equatable {
             let start = day.addingTimeInterval(TimeInterval(wake * 60))
             let end = day.addingTimeInterval(TimeInterval(bedMinutes * 60))
             let overlap = min(to, end).timeIntervalSince(max(from, start))
-            if overlap > 0 { add(overlap, on: day, calendar: calendar) }
+            if overlap >= Self.minBreak { add(overlap, on: day, calendar: calendar) }
             day = calendar.date(byAdding: .day, value: 1, to: day)!
         }
     }
@@ -47,11 +47,37 @@ struct RestLog: Codable, Equatable {
     }
 }
 
-/// The waking hours Screen Time watches. An hour with less than `glanceMinutes`
-/// of phone use counts as an hour of rest.
+/// Phone-free hours in a row so far, kept by the Screen Time monitor.
+struct RestRun: Codable, Equatable {
+    var hours = 0
+    var lastEnd: Date?
+
+    static func load() -> RestRun {
+        RestLog.defaults.data(forKey: "restRun").flatMap { try? JSONDecoder().decode(Self.self, from: $0) } ?? RestRun()
+    }
+    func save() { RestLog.defaults.set(try? JSONEncoder().encode(self), forKey: "restRun") }
+}
+
+extension RestLog {
+    /// A watched hour ending at `end` passed without phone use. It continues the
+    /// run if it follows the last one; once the run reaches `minBreak` the whole
+    /// stretch counts, and each later hour adds one more. A used hour resets the run.
+    mutating func restedHour(endingAt end: Date, run: inout RestRun, calendar: Calendar = .current) {
+        // ponytail: 75 min tolerance for late Screen Time callbacks; a skipped one breaks the run.
+        let follows = run.lastEnd.map { end.timeIntervalSince($0) < 75 * 60 } ?? false
+        run.hours = follows ? run.hours + 1 : 1
+        run.lastEnd = end
+        let need = Int(Self.minBreak / 3600)
+        let day = end.addingTimeInterval(-60)
+        if run.hours == need { add(Self.minBreak, on: day, calendar: calendar) }
+        else if run.hours > need { add(3600, on: day, calendar: calendar) }
+    }
+}
+
+/// The waking hours Screen Time watches. Any phone use in an hour (from
+/// `glanceMinutes`, the smallest Screen Time threshold) means it isn't rest.
 enum RestHours {
-    // ponytail: tuning knob; a quick look at a notification shouldn't break rest.
-    static let glanceMinutes = 2
+    static let glanceMinutes = 1
     /// Screen Time monitors at most 20 activities per app.
     static let maxBlocks = 20
 
