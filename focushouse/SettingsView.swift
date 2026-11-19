@@ -15,6 +15,7 @@ struct SettingsView: View {
     @AppStorage("limitSchool") private var limitSchool = WorkLimit.schoolDefault
     @AppStorage("limitOff") private var limitOff = WorkLimit.offDefault
     @AppStorage("showDamage") private var showDamage = true
+    @AppStorage("weeklySummaryOn") private var summaryOn = true
     @State private var pace = Planner.pace()
 
     var body: some View {
@@ -69,6 +70,13 @@ struct SettingsView: View {
                     Text(screenTimeRest
                          ? "Rest is \(Int(RestLog.minBreak / 3600)) hours or more in a row without using your phone. \(Int(House.restGoal / 3600)) hours of rest in a day repairs your house a step."
                          : "Rest is \(Int(RestLog.minBreak / 3600)) hours or more in a row away from focushouse. It can't see other apps, so turn on Screen Time to count only time off your whole phone.")
+                }
+                Section {
+                    Toggle("Weekly summary", isOn: $summaryOn)
+                } header: {
+                    Text("Wellbeing")
+                } footer: {
+                    Text("A page from Home's \"Your week\" card: your stress, rest and finished tasks over the last 7 days, what weighed on you most, and a few words from the on-device AI.")
                 }
                 Section {
                     Toggle("Show house damage on widgets", isOn: $showDamage)

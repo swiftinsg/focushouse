@@ -414,17 +414,135 @@ enum AIEval {
         for key in adaptiveKeys { UserDefaults.standard.set(saved[key], forKey: key) }
     }
 
-    static func save(_ report: String) {
+    static func save(_ report: String, as name: String = "ai-eval-latest.md") {
         print(report)
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("reports/ai-eval-latest.md")
+            .appendingPathComponent("reports/\(name)")
         do {
             try report.write(to: url, atomically: true, encoding: .utf8)
             print("AI eval report: \(url.path)")
         } catch {
-            let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("ai-eval-latest.md")
+            let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(name)
             try? report.write(to: tmp, atomically: true, encoding: .utf8)
             print("AI eval report: \(tmp.path) (couldn't write to the project: \(error.localizedDescription))")
         }
+    }
+}
+
+/// Weekly summary eval: made-up weeks with known facts; the AI's summary must name
+/// what weighed most, copy numbers exactly (no invented ones), match the week's mood
+/// and stay kind. Report: reports/summary-eval-latest.md.
+@Suite(.serialized, .enabled(if: AIEval.enabled))
+@MainActor struct SummaryEval {
+    struct Case {
+        var name: String
+        var items: [WeekStats.Item]
+        var restHours: [Double]            // 7 days, oldest first
+        var mentions: [String]             // stems; "a|b" either
+        var never: [String] = []           // words that would be wrong for this week
+    }
+
+    static let now = Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 21))!
+    static func day(_ ago: Int, _ h: Int = 16) -> Date {
+        let cal = Calendar.current
+        return cal.date(bySettingHour: h, minute: 0, second: 0, of: cal.date(byAdding: .day, value: -ago, to: now)!)!
+    }
+    static func task(_ title: String, _ ago: Int, _ minutes: Int, _ score: Int, done: Bool = true, felt: Int? = nil,
+                     actual: Int? = nil, event: Bool = false, compulsory: Bool = false) -> WeekStats.Item {
+        WeekStats.Item(title: title, day: day(ago), minutes: minutes,
+                       stress: House.stress(minutes: minutes, Rating(score: score, compulsory: compulsory)), isEvent: event,
+                       done: done, feeling: felt, estimate: actual == nil ? nil : minutes, actual: actual)
+    }
+
+    static let shaming = ["lazy", "should have", "failed", "disappoint", "not enough effort", "try harder", "no excuse"]
+
+    static let cases: [Case] = [
+        Case(name: "Exam week, little rest",
+             items: (0..<6).flatMap { ago in [task("Chem exam revision", ago, 150, 9, felt: 2, actual: 170),
+                                              task("Maths tutorial", ago, 60, 6, done: ago != 2, felt: 3)] },
+             restHours: [1, 0.5, 0, 1, 0, 2, 0.5],
+             mentions: ["chem"], never: ["calm week", "relaxed week", "easy week"]),
+        Case(name: "Calm, rested week",
+             items: [task("Read ch 3", 5, 30, 4, felt: 4), task("Tidy room", 3, 20, 2, felt: 4),
+                     task("Piano practice", 1, 30, 5, felt: 5), task("Maths worksheet", 0, 45, 5, felt: 4)],
+             restHours: [4, 5, 3.5, 4, 6, 3, 4],
+             mentions: ["rest|balance|calm|relax"], never: ["stressful week", "overwhelm", "tough week", "drain"]),
+        Case(name: "Busy but energised",
+             items: (0..<5).flatMap { ago in [task("Robotics project", ago, 180, 7, felt: 5),
+                                              task("Gym", ago, 45, 5, felt: 4)] },
+             restHours: [3, 2, 3, 1, 3, 4, 2],
+             mentions: ["robotic"], never: ["drained", "exhaust"]),
+        Case(name: "Grandma's funeral",
+             items: [task("Grandma's funeral", 3, 240, 9, event: true), task("Grandma's wake", 4, 180, 8, event: true),
+                     task("Geography essay", 1, 90, 6, felt: 2), task("Maths homework", 0, 45, 5, done: false)],
+             restHours: [2, 1, 1, 0, 2, 3, 2],
+             mentions: ["grandma|funeral|wake|hard personal"], never: ["great week", "awesome", "fun week"]),
+    ]
+
+    @Test(.timeLimit(.minutes(30)))
+    func accuracy() async throws {
+        var lines = ["# focushouse weekly summary eval", "", "\(Date.now.formatted()) · \(Self.cases.count) cases × \(PlannerEval.runs) runs", ""]
+        var passed = 0, total = 0
+        for c in Self.cases {
+            let stats = WeekStats(items: c.items, rest: { date in
+                let ago = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: date),
+                                                          to: Calendar.current.startOfDay(for: Self.now)).day ?? 0
+                return (0...6).contains(ago) ? c.restHours[6 - ago] * 3600 : 0
+            }, now: Self.now)
+            lines += ["## \(c.name)", "Facts:"] + stats.facts + [""]
+            for run in 1...PlannerEval.runs {
+                guard let s = await Reflections.summary(stats) else {
+                    total += 1
+                    lines += ["### Run \(run)", "- ❌ model answered", ""]
+                    continue
+                }
+                let text = s.summary + " " + s.encouragement
+                let results = Self.score(text, stats: stats, c: c)
+                lines += ["### Run \(run)", "> \(s.summary)", ">", "> \(s.encouragement)", ""]
+                for (name, ok, detail) in results {
+                    total += 1
+                    if ok { passed += 1 }
+                    lines.append("- \(ok ? "✅" : "❌") \(name)\(detail.isEmpty ? "" : " — \(detail)")")
+                }
+                lines.append("")
+            }
+        }
+        let rate = total == 0 ? 0 : Double(passed) / Double(total)
+        lines.insert(contentsOf: ["**\(passed)/\(total) checks passed (\(Int((rate * 100).rounded()))%)**, target \(Int(PlannerEval.target * 100))%", ""], at: 4)
+        PlannerEval.save(lines.joined(separator: "\n"), as: "summary-eval-latest.md")
+        #expect(rate >= PlannerEval.target, "Summary eval: \(passed)/\(total) checks passed")
+    }
+
+    static func score(_ text: String, stats: WeekStats, c: Case) -> [(String, Bool, String)] {
+        let lower = text.lowercased()
+        var out: [(String, Bool, String)] = []
+        for m in c.mentions {
+            out.append(("mentions \(m)", PlannerEval.matches(m, text), ""))
+        }
+        // Every number the AI wrote must be one of the facts' numbers.
+        let numbers = { (s: String) in Set(s.matches(of: /\d+(\.\d+)?/).map { String($0.output.0) }) }
+        let allowed = numbers(stats.facts.joined(separator: " ")).union(["7"])
+        let invented = numbers(text).subtracting(allowed)
+        out.append(("noInventedNumbers", invented.isEmpty, invented.sorted().joined(separator: ", ")))
+        // "6 of 7", "5 out of 7", "on 4 days": counts must be the real ones.
+        let factText = stats.facts.joined(separator: " ")
+        var badCounts = text.matches(of: /(\d+)\s+(?:out\s+)?of\s+(\d+)/)
+            .map { "\($0.output.1) of \($0.output.2)" }.filter { !factText.contains($0) }
+        let counts: Set<Int> = [stats.stressfulDays, stats.restedDays, 7 - stats.stressfulDays, 7 - stats.restedDays, 7]
+        badCounts += text.matches(of: /(?i)(\d+)\s+(?:\w+\s+){0,2}days\b/)
+            .filter { !counts.contains(Int($0.output.1)!) }.map { String($0.output.0) }
+        out.append(("countsMatch", badCounts.isEmpty, badCounts.joined(separator: "; ")))
+        let rule = text.matches(of: /(?i)(\d+)\s*(?:h|hours?)\+?\s+or\s+more/).filter { Int($0.output.1)! != Int(House.restGoal / 3600) }
+        out.append(("restRule", rule.isEmpty, rule.map { String($0.output.0) }.joined(separator: "; ")))
+        let voice = text.matches(of: /(?i)\b(them|they|their)\b/).map { String($0.output.0) }
+        out.append(("saysYou", voice.isEmpty, voice.joined(separator: ", ")))
+        out.append(("noLabels", !lower.contains("encouragement:") && !lower.contains("summary:"), ""))
+        let wrong = c.never.filter(lower.contains)
+        out.append(("moodMatches", wrong.isEmpty, wrong.joined(separator: ", ")))
+        let shame = shaming.filter(lower.contains)
+        out.append(("kind", shame.isEmpty, shame.joined(separator: ", ")))
+        let words = text.split(whereSeparator: \.isWhitespace).count
+        out.append(("short", (12...110).contains(words), "\(words) words"))
+        return out
     }
 }

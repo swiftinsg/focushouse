@@ -26,6 +26,13 @@ extension RestLog {
 /// event is only rated once. Home reads it through @AppStorage.
 enum Ratings {
     static func key(_ title: String) -> String { title.trimmingCharacters(in: .whitespaces).lowercased() }
+    /// Emotionally heavy events the small model rates as light (a funeral scored 1–3).
+    /// Plain code, so it also holds without Apple Intelligence and for old cached ratings.
+    // ponytail: word list; add words as students hit them.
+    static func heavy(_ title: String) -> Bool {
+        title.lowercased().contains(/\b(funeral|memorial|wake(?!\s+up)|cremation|burial|hospital|surgery|icu|passed\saway)\b/)
+    }
+
     static func load(_ data: Data) -> [String: Rating] { (try? JSONDecoder().decode([String: Rating].self, from: data)) ?? [:] }
 
     /// Asks the on-device model to rate `titles` and saves the answers.
@@ -41,6 +48,8 @@ enum Ratings {
                 4-6: ordinary homework, chores, practice, a regular club. \
                 7-8: long or difficult work, big assignments, revision, presentations, competitions. \
                 9-10: exams, major tests, deadlines due very soon, high-stakes performances. \
+                Emotionally heavy things are 8-10 even when short: a funeral, a wake, a hospital \
+                visit, a family emergency. \
                 compulsory is true for things the student can't skip: exams, tests, school lessons, \
                 assignments or deadlines set by a teacher.
                 """)
@@ -103,7 +112,8 @@ enum Ratings {
     /// The AI's rating for a title, or one from priority until it's rated;
     /// for plan tasks, scaled by the student's pace in that category.
     func rating(_ title: String, priority: Int, category: String? = nil) -> Rating {
-        let r = ratings[Ratings.key(title)] ?? Rating(priority: priority)
+        var r = ratings[Ratings.key(title)] ?? Rating(priority: priority)
+        if Ratings.heavy(title) { r.score = max(r.score, 8) }
         guard let category, let p = pace[category] else { return r }
         return r.personal(p)
     }

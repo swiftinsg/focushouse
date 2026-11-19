@@ -91,4 +91,31 @@ import Testing
         plan.addFreeTime { _ in 120 }    // already has one that day
         #expect(plan.tasks.count == 5)
     }
+
+    @Test func weekStatsCountTheLastSevenDays() {
+        let now = at(21, day: 20)
+        func item(_ title: String, day: Int, _ minutes: Int, stress: Int, done: Bool = true, felt: Int? = nil,
+                  event: Bool = false, actual: Int? = nil) -> WeekStats.Item {
+            WeekStats.Item(title: title, day: at(16, day: day), minutes: minutes, stress: stress, isEvent: event,
+                           done: done, feeling: felt, estimate: actual == nil ? nil : minutes, actual: actual)
+        }
+        let items = [
+            item("Chem revision", day: 20, 150, stress: 150, felt: 2, actual: 180),
+            item("Chem revision", day: 19, 150, stress: 150, felt: 2, actual: 180),
+            item("Maths", day: 18, 60, stress: 30, done: false, felt: nil),
+            item("Piano", day: 17, 30, stress: 15, felt: 5, actual: 30),
+            item("CCA", day: 16, 120, stress: 60, event: true),
+            item("Old essay", day: 10, 300, stress: 300),          // over a week ago
+            item("Tomorrow's test", day: 21, 60, stress: 60),     // not yet
+        ]
+        let stats = WeekStats(items: items, rest: { $0 == self.cal.startOfDay(for: now) ? 4 * 3600 : 3600 }, now: now)
+        #expect(stats.days.count == 7)
+        #expect(stats.stressfulDays == 2)
+        #expect(stats.restedDays == 1)
+        #expect(stats.planned == 4 && stats.done == 3)            // the CCA event isn't a task
+        #expect(stats.top.first?.title == "Chem revision" && stats.top.first?.share == 74)
+        #expect(stats.drained == ["Chem revision"] && stats.energised == ["Piano"])
+        #expect(stats.overrun == 18)                              // 390 min for 330 planned
+        #expect(stats.facts.contains("- Tasks finished: 3 of 4."))
+    }
 }

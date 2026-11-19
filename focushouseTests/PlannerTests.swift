@@ -98,6 +98,50 @@ struct PlannerTests {
         #expect(!Planner.distressed("kill time before tuition\nshoot hoops\ndissect a frog"))
     }
 
+    @Test func ventingIsNeverATask() {
+        #expect(Planner.items("ugh so tired\ni hate chem\nchem tutorial\ntired but must finish essay\nwhy is life like this")
+                == ["chem tutorial", "tired but must finish essay"])
+        #expect(!Planner.venting("deadline for pw"))
+        #expect(!Planner.venting("help mum cook dinner"))
+        #expect(Planner.venting("so sian"))
+    }
+
+    @Test func timesInALineArePinned() {
+        let cal = Calendar.current
+        let at = { (h: Int, m: Int) in cal.date(from: DateComponents(year: 2026, month: 11, day: 14, hour: h, minute: m))! }
+        let start = at(16, 0)
+        #expect(Planner.clockTime("tuition at 7pm (2h)", after: start) == at(19, 0))
+        #expect(Planner.clockTime("cca 5:30", after: start) == at(17, 30))
+        #expect(Planner.clockTime("call grandma at 8", after: start) == at(20, 0))   // bare hour: next one after now
+        #expect(Planner.clockTime("dinner @ 6.", after: start) == at(18, 0))
+        #expect(Planner.clockTime("read ch 4", after: start) == nil)
+        #expect(Planner.clockTime("run 5 kms", after: start) == nil)
+        #expect(Planner.clockTime("revise 2h", after: start) == nil)
+        #expect(Planner.clockTime("bake at 9am", after: start) == nil)               // already past today
+
+        let pins = Planner.pins(["maths hw", "tuition at 7pm (2h)", "pe at 5pm"],
+                                titles: ["Do maths homework", "Pack bag", "Attend tuition", "PE"], after: start)
+        #expect(pins == [2: at(19, 0), 3: at(17, 0)])
+    }
+
+    @Test func everySubjectGoalAsksForTheList() {
+        #expect(Planner.needsList("Revise every subject for O levels"))
+        #expect(Planner.needsList("study all my subjects before prelims"))
+        #expect(!Planner.needsList("Revise for O levels: maths, chemistry, English"))
+        #expect(!Planner.needsList("Revise chemistry for Friday"))
+        #expect(Planner.needsList("revise for my exam"))
+        #expect(Planner.needsList("study for O levels"))
+        #expect(!Planner.needsList("study for my biology exam"))
+        #expect(!Planner.needsList("run 5 km"))
+        #expect(PlannerError.list.isQuestion && !PlannerError.blocked.isQuestion)
+    }
+
+    @Test func passedTimesAreAskedAbout() {
+        let start = Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: 14, hour: 16))!
+        #expect(Planner.passedTime(["maths hw", "bake at 9am", "tuition at 7pm"], start: start) == "bake at 9am")
+        #expect(Planner.passedTime(["maths hw", "call grandma at 8"], start: start) == nil)
+    }
+
     @Test func vagueInputIsNotPlanned() {
         #expect(Planner.isVague("tasks"))
         #expect(Planner.isVague("get my stuff done today"))

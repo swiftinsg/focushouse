@@ -68,7 +68,9 @@ enum Planner {
     /// rejected with "Start over": the AI is asked for a genuinely different one.
     /// `history`: answered check-ins, so the plan fits how tasks really feel to them.
     @MainActor static func draft(for plan: Plan, previous: [PlanTask] = [], history: [PlanTask] = []) async throws -> DraftPlan {
-        guard !isVague(plan.input) else { throw PlannerError.vague }
+        guard !isVague(plan.input), plan.mode == .goal || !items(plan.input).isEmpty else { throw PlannerError.vague }
+        guard plan.mode == .today || !needsList(plan.input) || !materialTopics(plan.materials).isEmpty else { throw PlannerError.list }
+        if plan.mode == .today, let line = passedTime(items(plan.input), start: plan.start) { throw PlannerError.passed(line) }
         var session = LanguageModelSession(instructions: instructions)
         let topics = plan.mode == .goal ? goalTopics(plan.input) : []
         let sections = plan.mode == .goal ? materialTopics(plan.materials) : []
@@ -160,9 +162,32 @@ enum Planner {
     /// The to-do dump as separate items. The model skips items in long comma lists,
     /// but keeps them reliably one per line.
     static func items(_ input: String) -> [String] {
+        lines(input).filter { !distressed($0) && !venting($0) }
+    }
+
+    static func lines(_ input: String) -> [String] {
         input.split(whereSeparator: { ",;\n".contains($0) })
             .map { $0.trimmingCharacters(in: .whitespaces.union(CharacterSet(charactersIn: "-•*"))) }
-            .filter { !$0.isEmpty && !distressed($0) }
+            .filter { !$0.isEmpty }
+    }
+
+    /// A feeling, not a task ("ugh so tired", "i hate chem"): a feeling word and
+    /// nothing to do. Any work word keeps the line ("tired but must finish essay").
+    // ponytail: word lists; unknown venting slips through as a task the student can delete.
+    static func venting(_ line: String) -> Bool {
+        let tokens = line.lowercased().replacingOccurrences(of: "’", with: "'")
+            .split(whereSeparator: { !$0.isLetter }).map(String.init)
+        let feelings: Set<String> = ["ugh", "urgh", "argh", "sigh", "hate", "tired", "sian", "stressed", "stressing",
+                                     "bored", "sleepy", "exhausted", "annoyed", "sad", "angry", "fml", "lazy",
+                                     "dead", "dying", "why", "help", "cannot", "cant", "omg", "sucks", "depressed"]
+        let work = ["hw", "homework", "worksheet", "tutorial", "essay", "revis", "study", "studie", "finish", "do",
+                    "read", "writ", "submit", "practi", "tys", "test", "exam", "project", "pw", "assignment", "notes",
+                    "quiz", "prep", "complet", "start", "call", "buy", "pay", "pack", "wash", "clean", "tidy",
+                    "reply", "email", "send", "go", "run", "gym", "train", "make", "fix", "book", "return", "cook",
+                    "review", "learn", "memori", "paper", "lab", "report", "present", "slides", "chapter", "ch",
+                    "cca", "tuition", "lesson", "class", "meet", "walk", "swim", "feed", "visit", "plan", "draw"]
+        guard tokens.contains(where: feelings.contains) else { return false }
+        return !tokens.contains { t in work.contains { t == $0 || ($0.count >= 3 && t.hasPrefix($0)) } }
     }
 
     /// Words that sound like the student is really struggling ("i want to die lol
@@ -266,6 +291,62 @@ enum Planner {
                                    "all", "everything", "some", "the", "a", "and", "of", "for", "it", "work",
                                    "plan", "today", "tonight", "tomorrow", "this", "week", "day"]
         return input.lowercased().split(whereSeparator: { !$0.isLetter }).allSatisfy { filler.contains(String($0)) }
+    }
+
+    /// "Revise every subject for O levels" with no list: the model picks two subjects.
+    /// Ask which ones, so the goal-topics net can cover each.
+    /// Same for an exam goal that never names a subject ("revise for my exam", "study for O levels").
+    static func needsList(_ goal: String) -> Bool {
+        guard goalTopics(goal).isEmpty else { return false }
+        if goal.contains(/(?i)\b(every|each|all)(\s+(my|the|of my|of the))?\s+(subjects?|topics?|chapters?|modules?|units?)\b/) { return true }
+        let exam: Set<String> = ["exam", "exams", "test", "tests", "quiz", "paper", "papers", "prelims", "finals",
+                                 "levels", "level", "o", "n", "eoy", "wa", "sa", "ca", "midyear", "common"]
+        let filler: Set<String> = ["revise", "revision", "study", "prepare", "prep", "for", "my", "the", "a", "an",
+                                   "i", "need", "to", "upcoming", "next", "final", "mid", "year", "end", "of",
+                                   "school", "all", "get", "ready", "pass", "do", "well", "in", "and", "this", "week"]
+        let tokens = goal.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
+        return tokens.contains(where: exam.contains) && tokens.allSatisfy { exam.contains($0) || filler.contains($0) }
+    }
+
+    /// A to-do line whose time has already gone by today ("bake at 9am" at 4 PM).
+    static func passedTime(_ lines: [String], start: Date, calendar: Calendar = .current) -> String? {
+        lines.first { clockTime($0, after: calendar.startOfDay(for: start), calendar: calendar) != nil
+            && clockTime($0, after: start, calendar: calendar) == nil }
+    }
+
+    /// A time the student wrote in a line ("tuition at 7pm", "cca 3:30", "@8"), as the
+    /// next such time on `start`'s day at or after `start`. Bare hours ("at 7") are
+    /// 7 AM or 7 PM, whichever comes first. Nil when there's no time or it's passed.
+    static func clockTime(_ line: String, after start: Date, calendar: Calendar = .current) -> Date? {
+        for m in line.matches(of: /(?i)(\bat\s+|@\s*)?\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/) {
+            guard m.1 != nil || m.3 != nil || m.4 != nil, let h = Int(m.2), h <= 23,
+                  let minute = Int(m.3 ?? "0"), minute < 60 else { continue }
+            let hours: [Int] = switch m.4?.lowercased() ?? "" {
+            case "pm": h < 12 ? [h + 12] : [h]
+            case "am": [h % 12]
+            default: h >= 1 && h <= 11 ? [h, h + 12] : [h]
+            }
+            return hours.compactMap { calendar.date(bySettingHour: $0, minute: minute, second: 0, of: start) }
+                .first { $0 >= start }
+        }
+        return nil
+    }
+
+    /// Which draft item each timed line belongs to (by shared words), and its time.
+    // ponytail: word overlap like `reconcile`; a timed line the model renamed beyond recognition stays unpinned.
+    static func pins(_ lines: [String], titles: [String], after start: Date, calendar: Calendar = .current) -> [Int: Date] {
+        let skip: Set<String> = ["at", "am", "pm", "to", "do", "go", "my", "in", "on", "the", "and", "for"]
+        let tokens = { (s: String) in Set(s.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)).subtracting(skip) }
+        var pins: [Int: Date] = [:]
+        for line in lines {
+            guard let at = clockTime(line, after: start, calendar: calendar) else { continue }
+            let key = tokens(line)
+            let score = titles.map { title in tokens(title).filter { t in key.contains { similar(t, $0) } }.count }
+            if let i = score.indices.filter({ pins[$0] == nil && score[$0] > 0 }).max(by: { score[$0] < score[$1] }) {
+                pins[i] = at
+            }
+        }
+        return pins
     }
 
     /// A second, smaller ask for the lines the model dropped, so they get real estimates
@@ -702,14 +783,23 @@ extension Planner {
 }
 
 enum PlannerError: LocalizedError {
-    case tooLong, vague, blocked, language, busy
+    case tooLong, vague, blocked, language, busy, list, passed(String)
+
+    /// The plan needs one more detail from the student: New Plan shows it as a
+    /// question under the input instead of a red error. Not a chat: they edit and retry.
+    var isQuestion: Bool {
+        switch self { case .vague, .list, .passed: true; default: false }
+    }
+
     var errorDescription: String? {
         switch self {
+        case .list: "Which subjects or topics? List them after a colon, like \"Revise for O levels: maths, chemistry, English\", so none get left out."
+        case .passed(let line): "\"\(line)\": that time has already passed today. Change the time, or remove it and it'll be fitted in anywhere."
         case .blocked: "Apple's on-device AI wouldn't plan this. Its safety filter sometimes flags normal schoolwork, like history or biology topics. Try different words, or add the tasks yourself with + in the plan."
         case .language: "The on-device AI doesn't support this language yet. Try writing it in English."
         case .busy: "The on-device AI is busy. Wait a moment and try again."
         case .tooLong: "That's too much text for the on-device AI at once. Try a shorter list or fewer sections."
-        case .vague: "Say what you need to do, like \"maths worksheet\" or \"revise chemistry for Friday\"."
+        case .vague: "What do you need to do? Name it, like \"maths worksheet\" or \"revise chemistry for Friday\"."
         }
     }
 }

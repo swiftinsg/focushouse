@@ -15,6 +15,7 @@ struct HomeView: View {
     @AppStorage("owned") private var ownedRaw = ""
     @AppStorage("insight") private var insight = ""
     @AppStorage("homeTourDone") private var tourDone = false
+    @AppStorage("weeklySummaryOn") private var summaryOn = true
 
     var body: some View {
         let now = Date.now
@@ -81,7 +82,13 @@ struct HomeView: View {
 
                     if state != .calm && state != .resting { restCard }
                     if let next { nextCard(next, status).tour(.next) }
-                    if !insight.isEmpty { insightCard }
+                    if summaryOn {
+                        NavigationLink {
+                            WeeklySummaryView(stats: WeekStats(items: status.weekItems(tasks: tasks, todos: todos, events: events),
+                                                               rest: { log.seconds(on: $0) }))
+                        } label: { insightCard }
+                        .buttonStyle(.plain)
+                    } else if !insight.isEmpty { insightCard }
                 }
                 .padding()
             }
@@ -160,9 +167,11 @@ struct HomeView: View {
             Image(systemName: "lightbulb.fill").font(.title2).foregroundStyle(.yellow)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Your week").font(.pixel(20, relativeTo: .headline).weight(.bold))
-                Text(insight).font(.footnote)
+                Text(insight.isEmpty ? "See your stress, rest and what weighed on you most." : insight)
+                    .font(.footnote)
             }
             Spacer(minLength: 0)
+            if summaryOn { Image(systemName: "chevron.right").foregroundStyle(.secondary) }
         }
         .padding()
         .pixelBox()
@@ -364,5 +373,95 @@ struct HouseScene: View {
                 dot(x, y, c, w: 3); dot(x + 1, y + 1, c); dot(x, y + 2, c, w: 3)   // a 3×3 z
             }
         }
+    }
+}
+
+/// The weekly summary page: the last 7 days of stress, work and rest, what
+/// weighed on the student most, and the AI's few kind words about it. The words
+/// are cached with the facts they came from and rewritten only when those change.
+struct WeeklySummaryView: View {
+    let stats: WeekStats
+    /// [facts, summary, encouragement] as JSON.
+    @AppStorage("weeklySummary") private var saved = Data()
+    @State private var writing = false
+
+    private var words: (summary: String, encouragement: String)? {
+        guard let s = try? JSONDecoder().decode([String].self, from: saved), s.count == 3,
+              s[0] == stats.facts.joined(separator: "\n") else { return nil }
+        return (s[1], s[2])
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let words {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("How your week went", systemImage: "sparkles")
+                            .font(.pixel(20, relativeTo: .headline).weight(.bold))
+                        Text(words.summary)
+                        Text(words.encouragement).foregroundStyle(Color.grass).fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding().pixelBox()
+                } else if writing {
+                    HStack { ProgressView(); Text("Writing your summary…").foregroundStyle(.secondary) }
+                }
+
+                HStack(spacing: 10) {
+                    tile("\(stats.stressfulDays)/7", "stressful days")
+                    tile("\(stats.restedDays)/7", "rested days")
+                    tile(stats.planned == 0 ? "–" : "\(stats.done)/\(stats.planned)", "tasks done")
+                }
+
+                section("Stress by day")
+                ForEach(stats.days, id: \.date) { d in
+                    BrickMeter(title: d.date.formatted(.dateTime.weekday(.abbreviated)),
+                               detail: "\(HomeView.duration(TimeInterval(d.work * 60))) work · \(HomeView.duration(d.rest)) rest",
+                               filled: min(10, d.stress * 5 / House.stressfulMinutes),
+                               color: d.stressful ? .brick : d.stress * 2 >= House.stressfulMinutes ? .orange : .grass)
+                }
+
+                if !stats.top.isEmpty {
+                    section("Weighed on you most")
+                    ForEach(stats.top, id: \.title) { t in
+                        LabeledContent(t.title, value: "\(t.share)% of your stress")
+                    }
+                }
+                if let feeling = stats.feeling {
+                    section("How tasks felt")
+                    LabeledContent("Average", value: "\(feeling.formatted(.number.precision(.fractionLength(1))))/5 · \(stats.checkIns) check-ins")
+                    if !stats.drained.isEmpty { LabeledContent("Drained you", value: stats.drained.joined(separator: ", ")) }
+                    if !stats.energised.isEmpty { LabeledContent("Felt good", value: stats.energised.joined(separator: ", ")) }
+                }
+                if let overrun = stats.overrun, abs(overrun) >= 10 {
+                    Text("Tasks took \(abs(overrun))% \(overrun > 0 ? "longer" : "less time") than planned. New plans adjust for your pace.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            .padding()
+        }
+        .background(Color.paper)
+        .pixelTitle("Your week")
+        .task(id: stats.facts) {
+            guard words == nil else { return }
+            writing = true
+            defer { writing = false }
+            if let s = await Reflections.summary(stats) {
+                saved = (try? JSONEncoder().encode([stats.facts.joined(separator: "\n"), s.summary, s.encouragement])) ?? Data()
+            }
+        }
+    }
+
+    private func tile(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value).font(.pixel(24, relativeTo: .title2).weight(.bold))
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, 10).pixelBox()
+        .accessibilityElement(children: .combine)
+    }
+
+    private func section(_ title: String) -> some View {
+        Text(title).font(.pixel(18, relativeTo: .headline).weight(.bold)).padding(.top, 4)
     }
 }

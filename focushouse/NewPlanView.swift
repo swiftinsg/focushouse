@@ -14,6 +14,7 @@ struct NewPlanView: View {
     @State private var due = Calendar.current.date(byAdding: .day, value: 6, to: .now)!
     @State private var isWorking = false
     @State private var error: String?
+    @State private var question: String?   // the planner needs one more detail
     @AppStorage("askFreeTime") private var askFreeTime = false
     @AppStorage("autoAddToCalendar") private var autoAddToCalendar = false
     @AppStorage("bed") private var bed = 22 * 60
@@ -35,10 +36,17 @@ struct NewPlanView: View {
                                         : "Break one big goal into steps spread over several days.")
                 }
 
-                Section(mode == .today ? "Dump your to-do list" : "What's your goal?") {
+                Section {
                     TextField(mode == .today ? "maths hw, read ch 4, tidy room…" : "Revise for my biology exam",
                               text: $input, axis: .vertical)
                         .lineLimit(4...10)
+                        .onChange(of: input) { question = nil }
+                } header: {
+                    Text(mode == .today ? "Dump your to-do list" : "What's your goal?")
+                } footer: {
+                    if let question {
+                        Label(question, systemImage: "questionmark.bubble.fill").foregroundStyle(.orange)
+                    }
                 }
 
                 if Planner.distressed(input) {
@@ -50,6 +58,12 @@ struct NewPlanView: View {
                         }
                     } footer: {
                         Text("That line won't be added as a task.")
+                    }
+                }
+
+                if mode == .today, let vent = Planner.lines(input).first(where: Planner.venting) {
+                    Section {} footer: {
+                        Text("\"\(vent)\" sounds like a feeling, not a task, so it won't be planned. Hang in there.")
                     }
                 }
 
@@ -143,6 +157,7 @@ struct NewPlanView: View {
     private func makePlan() async {
         isWorking = true
         error = nil
+        question = nil
         defer { isWorking = false }
         do {
             let plan = newPlan(title: "", input: input, insert: false)
@@ -154,6 +169,8 @@ struct NewPlanView: View {
             plan.replaceTasks(with: draft)
             if autoAddToCalendar { _ = try? await CalendarSync.add(plan) }
             onCreate(plan)
+        } catch let asked as PlannerError where asked.isQuestion {
+            question = asked.localizedDescription
         } catch {
             self.error = error.localizedDescription
         }
@@ -202,15 +219,19 @@ extension Plan {
         Reminders.cancel(old)
         old.forEach { modelContext?.delete($0) }
         let kept = tasks.filter { t in !old.contains { $0 === t } }
+        // "tuition at 7pm": that item stays one task, pinned at 7 PM.
+        let pins = mode == .today ? Planner.pins(Planner.items(input), titles: draft.items.map(\.title), after: start) : [:]
         // Each subtask is a normal task, grouped under its item's title.
-        let made = draft.items.flatMap { item in
-            let steps = item.subtasks.isEmpty ? [DraftStep(title: item.title, minutes: item.minutes)] : item.subtasks
+        let made = draft.items.enumerated().flatMap { n, item in
+            let pin = pins[n]
+            let steps = item.subtasks.isEmpty || pin != nil ? [DraftStep(title: item.title, minutes: item.minutes)] : item.subtasks
             return steps.map { step in
                 let task = PlanTask(title: step.title, category: item.category, minutes: step.minutes,
                                     day: mode == .today ? 1 : min(max(item.day, 1), days), order: 0)
                 task.priority = Planner.priorities.firstIndex(of: item.priority) ?? 1
                 task.estimate = step.minutes
-                task.parent = item.subtasks.isEmpty ? "" : item.title
+                task.parent = steps.count > 1 ? item.title : ""
+                task.pinned = pin
                 return task
             }
         }

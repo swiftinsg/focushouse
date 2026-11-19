@@ -9,6 +9,14 @@ struct HouseTests {
         cal.date(bySettingHour: hour, minute: 0, second: 0, of: cal.date(byAdding: .day, value: -n, to: now)!)!
     }
 
+    @MainActor @Test func heavyEventsAreNeverLight() {
+        let status = HouseStatus(tasks: [], todos: [], events: [], ratings: [Ratings.key("Grandpa's funeral"): Rating(score: 2)])
+        #expect(status.rating("Grandpa's funeral", priority: 1).effort == .hard)
+        #expect(status.rating("Hospital visit", priority: 2).effort == .hard)   // unrated, no AI
+        #expect(status.rating("Lunch with friends", priority: 2).effort == .easy)
+        #expect(!Ratings.heavy("wake up early"))
+    }
+
     @Test func streakCountsStressfulDaysInARow() {
         let load = [(daysAgo(0), 120), (daysAgo(1), 60), (daysAgo(1), 60), (daysAgo(2), 150), (daysAgo(4), 300)]
         #expect(House.streak(load, now: now) == 3)   // day 3 is light, so day 4 doesn't count
