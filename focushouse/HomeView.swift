@@ -12,7 +12,6 @@ struct HomeView: View {
     @State private var showSettings = false
     @State private var showInside = false
     @State private var doorStep = 0        // 0 shut, 1 ajar, 2 open
-    @Namespace private var door
     @AppStorage("owned") private var ownedRaw = ""
     @AppStorage("insight") private var insight = ""
     @AppStorage("homeTourDone") private var tourDone = false
@@ -43,7 +42,6 @@ struct HomeView: View {
                                 .allowsHitTesting(false)
                             Button { enter() } label: { Color.clear.contentShape(Rectangle()) }
                                 .frame(width: 6 * px, height: 8 * px)
-                                .matchedTransitionSource(id: "door", in: door)
                                 .position(x: 15 * px, y: 26 * px)
                         }
                     }
@@ -102,16 +100,16 @@ struct HomeView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showSettings) { SettingsView() }
-            .fullScreenCover(isPresented: $showInside, onDismiss: { doorStep = 0 }) {
-                InsideView(earned: status.earned)
-                    .navigationTransition(.zoom(sourceID: "door", in: door))   // the whole screen grows out of the doorway
+            .fullScreenCover(isPresented: $showInside, onDismiss: { doorStep = 0 }) {   // the door shuts behind you
+                InsideView(earned: status.earned) { withoutAnimation { showInside = false } }
+                    .presentationBackground(.clear)   // Home shows through while the screen fades
             }
             .task { await refresh() }
         }
     }
 
-    /// Opens the door in two pixel frames, then the room zooms out of the doorway
-    /// full screen (the system zoom transition, which respects Reduce Motion).
+    /// Opens the door in two pixel frames, then steps inside: InsideView fades
+    /// the screen to black and the room in from the dark.
     private func enter() {
         guard doorStep == 0 else { return }
         Task { @MainActor in
@@ -119,7 +117,7 @@ struct HomeView: View {
             try? await Task.sleep(for: .milliseconds(120))
             doorStep = 2
             try? await Task.sleep(for: .milliseconds(180))
-            showInside = true
+            withoutAnimation { showInside = true }
         }
     }
 
@@ -212,6 +210,12 @@ struct HomeView: View {
             .min { $0.start! < $1.start! }
     }
 
+    private func withoutAnimation(_ change: () -> Void) {
+        var t = Transaction()
+        t.disablesAnimations = true
+        withTransaction(t, change)
+    }
+
     nonisolated static func duration(_ seconds: TimeInterval) -> String {
         let m = Int(seconds / 60)
         return m >= 60 ? (m % 60 == 0 ? "\(m / 60)h" : "\(m / 60)h \(m % 60)m") : "\(m)m"
@@ -220,12 +224,47 @@ struct HomeView: View {
 
 /// Inside the house, through the front door: the room with the student's
 /// furniture, and a way to the shop to decorate.
+/// Going in or out fades through black, like walking through a doorway in a
+/// pixel game: fade out, a beat in the dark, fade in on the other side.
 struct InsideView: View {
     let earned: Int
+    /// Takes the cover away without its own slide; the fades are the transition.
+    var leave: () -> Void
     @State private var showUpgrades = false
-    @Environment(\.dismiss) private var dismiss
+    @State private var showRoom = false
+    @State private var dark = 0.0   // the black screen between Home and the room
 
     var body: some View {
+        ZStack {
+            if showRoom { room }
+            Color.black.opacity(dark).ignoresSafeArea()
+                .allowsHitTesting(dark > 0)
+        }
+        .task {
+            await fade(to: 1, .easeIn(duration: 0.3))
+            showRoom = true
+            try? await Task.sleep(for: .milliseconds(150))
+            await fade(to: 0, .easeOut(duration: 0.35))
+        }
+    }
+
+    private func exit() {
+        Task {
+            await fade(to: 1, .easeIn(duration: 0.3))
+            showRoom = false
+            try? await Task.sleep(for: .milliseconds(150))
+            await fade(to: 0, .easeOut(duration: 0.35))
+            leave()
+        }
+    }
+
+    private func fade(to value: Double, _ curve: Animation) async {
+        await withCheckedContinuation { done in
+            withAnimation(curve) { dark = value } completion: { done.resume() }
+        }
+    }
+
+    private var room: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 RoomView()
@@ -246,7 +285,7 @@ struct InsideView: View {
             .pixelTitle("Inside")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Leave", systemImage: "door.left.hand.open") { dismiss() }
+                    Button("Leave", systemImage: "door.left.hand.open") { exit() }
                 }
             }
             .sheet(isPresented: $showUpgrades) { UpgradesView(earned: earned) }

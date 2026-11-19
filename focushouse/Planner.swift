@@ -22,7 +22,7 @@ import FoundationModels
     @Guide(description: "high only if the user marked this item urgent, important, \"!\" or due today or tomorrow; low if they said it can wait; otherwise normal. A deadline for the whole goal is not a reason for high.",
            .anyOf(Planner.priorities))
     var priority: String
-    @Guide(description: "Steps for a big piece of work (essay, project, revision, a long homework, a study-material section): 2 to 5 steps. Empty for a quick, simple job like paying someone back or tidying a room.",
+    @Guide(description: "Steps for a big piece of work (essay, project, revision, a long homework, a study-material section): 2 to 5 steps. Empty for a quick, simple job.",
            .count(0...5))
     var subtasks: [DraftStep]
 }
@@ -43,36 +43,33 @@ enum Planner {
     static var isAvailable: Bool { SystemLanguageModel.default.availability == .available }
 
     /// Shared by the first draft and the follow-up asks (dropped lines, thin plans).
+    /// Kept short: it shares the small context window with the prompt and the answer.
     static let instructions = """
         You help a student or teenager plan their work. Turn each thing the user asked for \
-        into one item. Quick, simple jobs (pay mum back, tidy room, reply to a message, feed \
-        the cat, pack a bag) take 5 to 20 minutes and have no subtasks. Big pieces of work (an \
-        essay, a project, exam revision, a long homework) get 2 to 5 subtasks of 20 to 90 \
-        minutes that a student can tick off one by one. \
-        Estimate durations realistically for a typical secondary or junior college student, \
-        not an expert. Typical times: a tutorial, worksheet or problem set 45 to 90 minutes; \
-        studying for a test 60 to 120 minutes; an essay draft 90 to 180 minutes; reading a \
-        chapter 30 to 60 minutes. If the user gives a time ("30 min"), use it. Split any item \
-        longer than 60 minutes into subtasks. Practising a skill (an instrument, vocabulary, \
-        a sport) works best in short sessions of 15 to 45 minutes. \
-        Students may use Singapore slang: "mug" means study hard, "tys" means past-year exam \
-        papers, "pw" is Project Work, "cca" is a school club or sport. \
-        Exercise: at most one session a day of 20 to 60 minutes, with a rest day at least \
-        every third day; build up slowly (beginners mix running and walking). \
-        Never leave out anything the user asked for, even if it doesn't fit the free time. \
-        When spreading over several days, keep each day within its free time and spread \
-        the work evenly across all the days. \
-        Use high priority only when the user marked that thing urgent, important, "!" or due \
-        today or tomorrow, and low only when they said it can wait or maybe. Otherwise normal. \
-        If study material is given, make one item per section or topic, in order, titled \
-        with the section's short name (e.g. "Section 1: Arenes"), with its tasks as subtasks.
+        into one item. Use only what the user wrote: never add a task they didn't ask for. \
+        Quick jobs (a small errand or chore) take 5 to 20 minutes with no subtasks. Big work (an essay, a project, exam revision, \
+        a long homework) or anything over 60 minutes gets 2 to 5 subtasks of 20 to 90 minutes. \
+        Estimate like a typical secondary or junior college student: a tutorial or worksheet \
+        45 to 90 minutes, studying for a test 60 to 120, an essay draft 90 to 180, reading a \
+        chapter 30 to 60. Use any time the user gives. Skill practice (an instrument, \
+        vocabulary, a sport) is 15 to 45 minutes a session. \
+        Slang: "mug" is study hard, "tys" is past-year papers, "pw" is Project Work, "cca" is \
+        a school club. Exercise: at most one 20 to 60 minute session a day, and a rest day at \
+        least every third day. \
+        Never leave out anything the user asked for. Spread work evenly across all the days, \
+        within each day's free time. \
+        Priority is high only if the user marked that thing urgent, important, "!" or due \
+        today or tomorrow; low only if they said it can wait or maybe; otherwise normal. \
+        If study material is given, make one item per section, in order, titled with its \
+        short name, with its tasks as subtasks.
         """
 
     /// Splits the plan's input into tasks. `previous` is the plan the student
     /// rejected with "Start over": the AI is asked for a genuinely different one.
     /// `history`: answered check-ins, so the plan fits how tasks really feel to them.
     @MainActor static func draft(for plan: Plan, previous: [PlanTask] = [], history: [PlanTask] = []) async throws -> DraftPlan {
-        let session = LanguageModelSession(instructions: instructions)
+        guard !isVague(plan.input) else { throw PlannerError.vague }
+        var session = LanguageModelSession(instructions: instructions)
         let topics = plan.mode == .goal ? goalTopics(plan.input) : []
         let sections = plan.mode == .goal ? materialTopics(plan.materials) : []
         var prompt = switch plan.mode {
@@ -96,14 +93,16 @@ enum Planner {
         // upgrade by drafting one section at a time if students paste whole chapters.
         let material = plan.materials.trimmingCharacters(in: .whitespacesAndNewlines)
         if !material.isEmpty { prompt += "\n\nStudy material:\n" + material.prefix(6000) }
+        let lean = prompt   // what a retry keeps when the context fills up
         prompt += examples(for: plan.input + " " + material.prefix(2000))
         prompt += paceNote()
         prompt += Reflections.promptNote(history)
 
         var options = GenerationOptions()
+        var rejected = ""
         if !previous.isEmpty {
             let old = previous.map { "- \($0.parent.isEmpty ? "" : $0.parent + ": ")\($0.title) (\($0.minutes) min, day \($0.day))" }.joined(separator: "\n")
-            prompt += """
+            rejected = """
 
 
                 The student didn't like this plan and wants a different one:
@@ -113,13 +112,24 @@ enum Planner {
                 such as practice questions, flashcards or summaries), group or order it \
                 differently, and use different task names. Don't repeat the plan above.
                 """
+            prompt += rejected
             options = GenerationOptions(samplingMode: .random(probabilityThreshold: 0.9), temperature: 1.0)
         }
         do {
-            var draft = try await session.respond(to: prompt, generating: DraftPlan.self, options: options).content
+            var draft: DraftPlan
+            do {
+                draft = try await session.respond(to: prompt, generating: DraftPlan.self, options: options).content
+            } catch LanguageModelError.contextSizeExceeded {
+                // Short inputs hit this too, when an answer runs away: one fresh try with
+                // the optional extras (saved examples, pace, reflections) left out.
+                session = LanguageModelSession(instructions: instructions)
+                draft = try await session.respond(to: lean + rejected, generating: DraftPlan.self,
+                                                  options: GenerationOptions(samplingMode: .random(probabilityThreshold: 0.9), temperature: 0.7)).content
+            }
             if plan.mode == .today {
                 let restored = reconcile(items(plan.input), in: &draft)
                 if !restored.isEmpty { await refill(restored, in: &draft) }
+                await addSteps(to: &draft)
             } else {
                 if let floor = effortFloor(draft, days: plan.days) {
                     // Same session, so the model sees its own thin plan and the goal.
@@ -139,6 +149,7 @@ enum Planner {
                 cover(sections, goal: plan.input, days: plan.days, inOrder: true, in: &draft)
                 spread(&draft, days: plan.days)
                 goalPriorities(topics, goal: plan.input, in: &draft)
+                await addSteps(to: &draft)
             }
             return tidied(draft)
         } catch LanguageModelError.contextSizeExceeded {
@@ -181,6 +192,14 @@ enum Planner {
             if let match {
                 i = match
                 draft.items[i].priority = marked ?? "normal"   // the model marks unmarked work high
+                // "econs essay" matched "Draft essay introduction" on "essay": put back the
+                // word that tells it apart from the other lines.
+                let others = lines.filter { words($0) != key }.reduce(into: Set<String>()) { $0.formUnion(words($1)) }
+                let subject = words(cleanTopic(line)).subtracting(others)
+                let title = words(draft.items[i].title)
+                if !subject.isEmpty, !subject.contains(where: { s in title.contains { similar(s, $0) } }) {
+                    draft.items[i].title = studentTitle(line)
+                }
             } else {
                 draft.items.append(DraftItem(title: line.prefix(1).uppercased() + line.dropFirst(),
                                              category: "other", minutes: 30, day: 1,
@@ -191,14 +210,29 @@ enum Planner {
             claimed.insert(i)
             seen[key] = i
         }
-        return restored
+        // Items matching no line are the model's own ideas, often copied from the
+        // instructions' examples ("tidy room" for a list that never said it): drop them.
+        let kept = draft.items.indices.filter(claimed.contains)
+        draft.items = kept.map { draft.items[$0] }
+        return restored.compactMap { kept.firstIndex(of: $0) }
+    }
+
+    /// Input with nothing concrete in it ("tasks", "get my stuff done today"). The
+    /// model fills those with tasks from its instructions, so ask the student instead.
+    static func isVague(_ input: String) -> Bool {
+        let filler: Set<String> = ["tasks", "task", "stuff", "things", "thing", "todo", "todos", "to", "do",
+                                   "list", "get", "my", "i", "need", "have", "want", "gotta", "done", "finish",
+                                   "all", "everything", "some", "the", "a", "and", "of", "for", "it", "work",
+                                   "plan", "today", "tonight", "tomorrow", "this", "week", "day"]
+        return input.lowercased().split(whereSeparator: { !$0.isLetter }).allSatisfy { filler.contains(String($0)) }
     }
 
     /// A second, smaller ask for the lines the model dropped, so they get real estimates
     /// instead of 30-minute placeholders. The student's priority stays; on failure the
     /// placeholders stay too.
     @MainActor static func refill(_ restored: [Int], in draft: inout DraftPlan) async {
-        let lines = restored.map { draft.items[$0].title }
+        // Without "can wait" or "maybe": the model reads those as leave-it-out.
+        let lines = restored.map { cleanTopic(draft.items[$0].title) }
         let prompt = """
             Make one item for each of these to-do lines, in this order, all for day 1. \
             Keep each line's meaning; don't merge or skip any.
@@ -212,6 +246,7 @@ enum Planner {
 
     /// Puts the follow-up's estimates into the placeholders: by shared words first, then
     /// the rest in order if exactly as many are left on both sides.
+    // ponytail: a restored line the follow-up doesn't answer stays a 30-minute placeholder.
     static func fill(_ restored: [Int], in draft: inout DraftPlan, from extra: [DraftItem]) {
         var taken = Set<Int>()
         var left: [Int] = []
@@ -223,15 +258,70 @@ enum Planner {
                 continue
             }
             taken.insert(j)
-            draft.items[i].title = extra[j].title
             use(extra[j], for: i, in: &draft)
         }
         let rest = extra.indices.filter { !taken.contains($0) }
         guard rest.count == left.count else { return }
-        for (i, j) in zip(left, rest) { use(extra[j], for: i, in: &draft) }   // keeps the student's wording
+        for (i, j) in zip(left, rest) { use(extra[j], for: i, in: &draft) }
     }
 
+    /// Big items the model left as one block (a 2-hour essay draft) get steps from one
+    /// small follow-up ask, scaled to the item's minutes. Nothing changes if it fails.
+    @MainActor static func addSteps(to draft: inout DraftPlan) async {
+        let big = draft.items.indices.filter { i in
+            let item = draft.items[i]
+            return item.subtasks.isEmpty && item.minutes > 60 && !["chores", "exercise"].contains(item.category)
+        }
+        guard !big.isEmpty else { return }
+        let prompt = """
+            Break each of these into 2 to 4 steps a student can tick off one by one. \
+            One item per line below, with the same title, in this order:
+
+            \(big.map { "- \(draft.items[$0].title) (\(draft.items[$0].minutes) min)" }.joined(separator: "\n"))
+            """
+        guard let answer = try? await LanguageModelSession(instructions: instructions)
+            .respond(to: prompt, generating: DraftPlan.self).content else { return }
+        steps(big, in: &draft, from: answer.items)
+    }
+
+    /// Copies the follow-up's steps onto the big items (by title, or in order when the
+    /// counts match), scaled so they still add up to the item's minutes. For a single
+    /// big item the model often answers with the steps as items, not subtasks.
+    static func steps(_ big: [Int], in draft: inout DraftPlan, from answer: [DraftItem]) {
+        if big.count == 1, answer.count >= 2, answer.allSatisfy({ $0.subtasks.isEmpty }) {
+            setSteps(answer.map { DraftStep(title: $0.title, minutes: $0.minutes) }, on: big[0], in: &draft)
+            return
+        }
+        var taken = Set<Int>()
+        for (n, i) in big.enumerated() {
+            let title = words(draft.items[i].title)
+            let score = answer.map { words($0.title).intersection(title).count }
+            let byTitle = score.indices.filter { !taken.contains($0) && score[$0] > 0 }.max { score[$0] < score[$1] }
+            guard let j = byTitle ?? (answer.count == big.count && !taken.contains(n) ? n : nil),
+                  answer[j].subtasks.count >= 2 else { continue }
+            taken.insert(j)
+            setSteps(answer[j].subtasks, on: i, in: &draft)
+        }
+    }
+
+    private static func setSteps(_ steps: [DraftStep], on i: Int, in draft: inout DraftPlan) {
+        let sum = max(steps.map(\.minutes).reduce(0, +), 1)
+        let total = draft.items[i].minutes
+        draft.items[i].subtasks = steps.prefix(5).map { step in
+            DraftStep(title: step.title, minutes: max(5, Int((Double(step.minutes * total) / Double(sum)).rounded())))
+        }
+    }
+
+    /// The student's own line as a title, without "can wait", "!" and the like.
+    static func studentTitle(_ line: String) -> String {
+        let clean = cleanTopic(line)
+        return clean.prefix(1).uppercased() + clean.dropFirst()
+    }
+
+    /// Takes the follow-up's estimate, keeping the student's wording as the title: the
+    /// model's title can lose the subject ("Draft essay outline" for "econs essay").
     private static func use(_ found: DraftItem, for i: Int, in draft: inout DraftPlan) {
+        draft.items[i].title = studentTitle(draft.items[i].title)
         draft.items[i].category = found.category
         draft.items[i].minutes = found.minutes
         draft.items[i].subtasks = found.subtasks
@@ -463,9 +553,12 @@ extension Planner {
         return keys.isEmpty ? words(topic).subtracting(studyWords) : keys
     }
 
-    /// Same word or the same stem: electrochemistry ~ electrochemical, equilibrium ~ equilibria.
+    /// Same word, the same stem (electrochemistry ~ electrochemical, equilibrium ~ equilibria)
+    /// or a short form of 4+ letters (chem ~ chemistry, math ~ mathematics).
     static func similar(_ a: String, _ b: String) -> Bool {
-        a == b || a.commonPrefix(with: b).count >= max(5, min(a.count, b.count) - 3)
+        let (short, long) = a.count <= b.count ? (a, b) : (b, a)
+        return a == b || a.commonPrefix(with: b).count >= max(5, short.count - 3)
+            || (short.count >= 4 && long.hasPrefix(short))
     }
 
     static func covers(_ keys: Set<String>, _ item: DraftItem) -> Bool {
@@ -532,13 +625,13 @@ extension Planner {
 
     private static let deskWork: Set<String> = ["homework", "study", "revision", "reading", "writing", "project"]
 
-    /// Minutes a study goal over 3+ days should have at least (45 a day); nil when the plan
+    /// Minutes a study goal over 2+ days should have at least (50 a day); nil when the plan
     /// already has that much, or the goal isn't desk work (a run, tidying a room).
     static func effortFloor(_ draft: DraftPlan, days: Int) -> Int? {
-        guard days >= 3, !draft.items.isEmpty else { return nil }
+        guard days >= 2, !draft.items.isEmpty else { return nil }
         let study = draft.items.filter { deskWork.contains($0.category) }.count
         guard study * 2 > draft.items.count else { return nil }
-        let floor = 45 * days
+        let floor = 50 * days
         return totalMinutes(draft) < floor ? floor : nil
     }
 
@@ -568,8 +661,11 @@ extension Planner {
 }
 
 enum PlannerError: LocalizedError {
-    case tooLong
+    case tooLong, vague
     var errorDescription: String? {
-        "That's too much text for the on-device AI at once. Try a shorter list or fewer sections."
+        switch self {
+        case .tooLong: "That's too much text for the on-device AI at once. Try a shorter list or fewer sections."
+        case .vague: "Say what you need to do, like \"maths worksheet\" or \"revise chemistry for Friday\"."
+        }
     }
 }

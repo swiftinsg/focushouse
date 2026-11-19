@@ -34,11 +34,59 @@ struct PlannerTests {
             DraftItem(title: "Write econs essay", category: "writing", minutes: 120, day: 1, priority: "high",
                       subtasks: [DraftStep(title: "Outline", minutes: 30), DraftStep(title: "Draft", minutes: 90)]),
             DraftItem(title: "Get ready for school", category: "chores", minutes: 10, day: 1, priority: "normal", subtasks: [])])
-        #expect(draft.items.map(\.title) == ["Math hw", "Pack bag", "Write econs essay"])
+        #expect(draft.items.map(\.title) == ["Math hw", "Pack bag", "Econs essay"])   // the student's words
         #expect(draft.items.map(\.minutes) == [30, 10, 120])
         #expect(draft.items.map(\.category) == ["homework", "chores", "writing"])
         #expect(draft.items[2].priority == "low")   // the student's mark, not the model's
         #expect(draft.items[2].subtasks.count == 2)
+    }
+
+    @Test func keepsTheSubjectWhenTheModelDropsIt() {
+        var draft = DraftPlan(title: "x", items: [item("GP essay"), item("Draft essay introduction")])
+        Planner.reconcile(["GP essay", "econs essay can wait"], in: &draft)
+        #expect(draft.items.map(\.title) == ["GP essay", "Econs essay"])
+        #expect(draft.items[1].priority == "low")
+
+        var kept = DraftPlan(title: "x", items: [item("Complete chemistry tutorial")])
+        Planner.reconcile(["chem tutorial due tmr!!"], in: &kept)
+        #expect(kept.items[0].title == "Complete chemistry tutorial")   // chem ~ chemistry
+    }
+
+    @Test func bigItemsGetStepsScaledToTheirTime() {
+        var draft = DraftPlan(title: "x", items: [item("GP essay draft", "writing"), item("Laundry", "chores")])
+        draft.items[0].minutes = 120
+        Planner.steps([0], in: &draft, from: [
+            DraftItem(title: "GP essay draft", category: "writing", minutes: 60, day: 1, priority: "normal",
+                      subtasks: [DraftStep(title: "Outline", minutes: 20), DraftStep(title: "Write body", minutes: 40)])])
+        #expect(draft.items[0].subtasks.map(\.minutes) == [40, 80])
+        #expect(draft.items[1].subtasks.isEmpty)
+
+        // The same steps answered as separate items.
+        var flat = DraftPlan(title: "x", items: [item("GP essay draft", "writing")])
+        flat.items[0].minutes = 90
+        Planner.steps([0], in: &flat, from: [
+            DraftItem(title: "Outline the essay", category: "writing", minutes: 20, day: 1, priority: "normal", subtasks: []),
+            DraftItem(title: "Write the body", category: "writing", minutes: 40, day: 1, priority: "normal", subtasks: [])])
+        #expect(flat.items[0].subtasks.map(\.title) == ["Outline the essay", "Write the body"])
+        #expect(flat.items[0].subtasks.map(\.minutes) == [30, 60])
+    }
+
+    @Test func dropsItemsTheStudentNeverWrote() {
+        // What the on-device model really did with "maths hw": it added an
+        // example from its instructions.
+        var draft = DraftPlan(title: "Day 1 Tasks", items: [item("Tidy room", "chores"), item("Maths hw")])
+        let restored = Planner.reconcile(["maths hw", "feed cat"], in: &draft)
+        #expect(draft.items.map(\.title) == ["Maths hw", "Feed cat"])
+        #expect(restored == [1])
+    }
+
+    @Test func vagueInputIsNotPlanned() {
+        #expect(Planner.isVague("tasks"))
+        #expect(Planner.isVague("get my stuff done today"))
+        #expect(Planner.isVague("  "))
+        #expect(!Planner.isVague("hw"))
+        #expect(!Planner.isVague("clean up"))
+        #expect(!Planner.isVague("tasks: maths hw"))
     }
 
     @Test func eachLineNeedsItsOwnItem() {
@@ -129,7 +177,7 @@ struct GoalTests {
 
     @Test func thinStudyPlansGetAFloor() {
         let thin = DraftPlan(title: "x", items: [item("Outline essay", "writing", minutes: 60), item("Research", "study", minutes: 70)])
-        #expect(Planner.effortFloor(thin, days: 5) == 225)
+        #expect(Planner.effortFloor(thin, days: 5) == 250)
         #expect(Planner.effortFloor(thin, days: 2) == nil)
         #expect(Planner.effortFloor(DraftPlan(title: "x", items: [item("Easy run", "exercise")]), days: 7) == nil)
     }
@@ -141,6 +189,13 @@ struct GoalTests {
         run.subtasks = [DraftStep(title: "Warm up", minutes: 20), DraftStep(title: "Run", minutes: 100)]
         let steps = Planner.tidied(DraftPlan(title: "x", items: [run])).items[0].subtasks.map(\.minutes)
         #expect(steps == [10, 50])
+    }
+
+    @Test func shortFormsMatch() {
+        #expect(Planner.similar("chem", "chemistry"))
+        #expect(Planner.similar("electrochemistry", "electrochemical"))
+        #expect(!Planner.similar("org", "organic"))   // too short to trust
+        #expect(!Planner.similar("chemical", "electrochemical"))
     }
 
     @Test func goalPrioritiesComeOnlyFromStudentWords() {
