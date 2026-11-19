@@ -23,6 +23,7 @@
 		29D15B8B36EAAB80D0C3BF59 /* ReflectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 056ABEF2EDB00D1B7EF7E7DD /* ReflectionTests.swift */; };
 		2A20813AB7BA81B3F07F377F /* MonthGridTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E044F295CE7890BD56683F9 /* MonthGridTests.swift */; };
 		2FAE874E7B776A1949B28796 /* PinTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C769B08F1B6ED6CBA67C1E39 /* PinTests.swift */; };
+		A1E5A7EF00C0FFEE00000002 /* PlannerEval.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E5A7EF00C0FFEE00000001 /* PlannerEval.swift */; };
 		3684C6CD278690EE7E9473D5 /* PlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DB80D5B9CC2F8B531114A96 /* PlannerTests.swift */; };
 		3D724E239E9034A4C2538BCE /* TaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F43801DB9127B1FE54B19D8A /* TaskView.swift */; };
 		3E22722E8BE1FC9742A2A2F3 /* Scheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AA8E533175C1BEC7F2C2DE0 /* Scheduler.swift */; };
@@ -142,6 +143,7 @@
 		992D87DDF9AAA1400FBCA858 /* ScreenTime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenTime.swift; sourceTree = "<group>"; };
 		9CFB0542597D0B67569E3DC2 /* focushouseWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = focushouseWidgets.entitlements; sourceTree = "<group>"; };
 		9DB59EF4946F3158394F640C /* CalendarTipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTipView.swift; sourceTree = "<group>"; };
+		A1E5A7EF00C0FFEE00000001 /* PlannerEval.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerEval.swift; sourceTree = "<group>"; };
 		9DB80D5B9CC2F8B531114A96 /* PlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerTests.swift; sourceTree = "<group>"; };
 		A444C467E91742D0651D4FC4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		ABCE8B42060DDB0EEAE1D1F2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -191,6 +193,7 @@
 				625339BA0FD04DE862AEEF7E /* HouseTests.swift */,
 				0E044F295CE7890BD56683F9 /* MonthGridTests.swift */,
 				C769B08F1B6ED6CBA67C1E39 /* PinTests.swift */,
+				A1E5A7EF00C0FFEE00000001 /* PlannerEval.swift */,
 				9DB80D5B9CC2F8B531114A96 /* PlannerTests.swift */,
 				056ABEF2EDB00D1B7EF7E7DD /* ReflectionTests.swift */,
 				B06BD775BF03FCA6965ED651 /* RoutineTests.swift */,
@@ -446,6 +449,7 @@
 				04D40C4A03E730F813F7E4A0 /* HouseTests.swift in Sources */,
 				2A20813AB7BA81B3F07F377F /* MonthGridTests.swift in Sources */,
 				2FAE874E7B776A1949B28796 /* PinTests.swift in Sources */,
+				A1E5A7EF00C0FFEE00000002 /* PlannerEval.swift in Sources */,
 				3684C6CD278690EE7E9473D5 /* PlannerTests.swift in Sources */,
 				29D15B8B36EAAB80D0C3BF59 /* ReflectionTests.swift in Sources */,
 				D6D558324E6EBB583432911B /* RoutineTests.swift in Sources */,

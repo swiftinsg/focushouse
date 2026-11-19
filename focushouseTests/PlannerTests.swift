@@ -19,6 +19,34 @@ struct PlannerTests {
         #expect(draft.items.map(\.priority) == ["normal", "high", "high", "low"])
     }
 
+    @Test func unmarkedLinesAreNormalAndRestoredOnesAreReported() {
+        var draft = DraftPlan(title: "x", items: [item("Maths homework")])
+        draft.items[0].priority = "high"   // the model guessing
+        let restored = Planner.reconcile(["maths homework", "call grandma"], in: &draft)
+        #expect(draft.items.map(\.priority) == ["normal", "normal"])
+        #expect(restored == [1])
+    }
+
+    @Test func fillsPlaceholdersFromTheFollowUp() {
+        var draft = DraftPlan(title: "x", items: [item("Math hw"), item("Pack bag", "other"), item("Econs essay can wait", "other")])
+        draft.items[2].priority = "low"
+        Planner.fill([1, 2], in: &draft, from: [
+            DraftItem(title: "Write econs essay", category: "writing", minutes: 120, day: 1, priority: "high",
+                      subtasks: [DraftStep(title: "Outline", minutes: 30), DraftStep(title: "Draft", minutes: 90)]),
+            DraftItem(title: "Get ready for school", category: "chores", minutes: 10, day: 1, priority: "normal", subtasks: [])])
+        #expect(draft.items.map(\.title) == ["Math hw", "Pack bag", "Write econs essay"])
+        #expect(draft.items.map(\.minutes) == [30, 10, 120])
+        #expect(draft.items.map(\.category) == ["homework", "chores", "writing"])
+        #expect(draft.items[2].priority == "low")   // the student's mark, not the model's
+        #expect(draft.items[2].subtasks.count == 2)
+    }
+
+    @Test func eachLineNeedsItsOwnItem() {
+        var draft = DraftPlan(title: "x", items: [item("Write GP essay")])
+        Planner.reconcile(["GP essay", "econs essay"], in: &draft)
+        #expect(draft.items.map(\.title) == ["Write GP essay", "Econs essay"])
+    }
+
     @Test func choresAndOneStepItemsHaveNoSubtasks() {
         let draft = Planner.tidied(DraftPlan(title: "x", items: [
             item("Tidy room", "chores", steps: 3), item("Maths hw", steps: 1), item("Essay", "writing", steps: 3)
@@ -35,6 +63,96 @@ struct PlannerTests {
         #expect(text.contains("English essay"))
         #expect(!text.contains("Clean bike"))
         #expect(Planner.examples(for: "feed cat", from: saved).isEmpty)
+    }
+}
+
+struct GoalTests {
+    private func item(_ title: String, _ category: String = "revision", minutes: Int = 30, day: Int = 1,
+                      priority: String = "high") -> DraftItem {
+        DraftItem(title: title, category: category, minutes: minutes, day: day, priority: priority, subtasks: [])
+    }
+
+    private let chem = "Revise for my H2 Chemistry exam on Wednesday: organic chemistry, chemical equilibrium and electrochemistry"
+
+    @Test func splitsGoalIntoTopics() {
+        #expect(Planner.goalTopics(chem) == ["organic chemistry", "chemical equilibrium", "electrochemistry"])
+        #expect(Planner.goalTopics("maths, physics; chemistry") == ["maths", "physics", "chemistry"])
+        #expect(Planner.goalTopics("Be able to run 5km without stopping").isEmpty)
+        #expect(Planner.goalTopics("Clean and organise my bedroom").isEmpty)   // no list: one goal
+        #expect(Planner.goalTopics("Finish by 5:30").isEmpty)
+        #expect(Planner.cleanTopic("chemistry is urgent!!") == "chemistry")
+    }
+
+    @Test func addsDroppedTopicOnLightestDay() {
+        var draft = DraftPlan(title: "Chem", items: [item("Organic chemistry basics", minutes: 60, day: 1),
+                                                     item("Chemical equilibrium", minutes: 75, day: 2),
+                                                     item("Past paper", minutes: 90, day: 4)])
+        Planner.cover(Planner.goalTopics(chem), goal: chem, days: 4, in: &draft)
+        #expect(draft.items.map(\.title) == ["Organic chemistry basics", "Chemical equilibrium", "Revise electrochemistry", "Past paper"])
+        #expect(draft.items[2].day == 3)        // the empty day
+        #expect(draft.items[2].minutes == 75)   // the plan's median item
+    }
+
+    @Test func keepsTopicsTheModelCoveredUnderOtherWords() {
+        var draft = DraftPlan(title: "Chem", items: [item("Organic reactions"), item("Equilibria practice"),
+                                                     item("Electrochemical cells")])
+        Planner.cover(Planner.goalTopics(chem), goal: chem, days: 3, in: &draft)
+        #expect(draft.items.count == 3)
+    }
+
+    @Test func addsDroppedStudySectionAfterTheOneBefore() {
+        let material = """
+            Section 1: Arenes - electrophilic substitution, nitration and halogenation of benzene
+            Section 2: Phenols - acidity, reaction with bromine water and NaOH
+            Section 3: Carbonyls - nucleophilic addition of HCN, 2,4-DNPH and Tollens' tests
+            """
+        let sections = Planner.materialTopics(material)
+        #expect(sections.count == 3)
+        var draft = DraftPlan(title: "x", items: [item("Electrophilic substitution of benzene", day: 1),
+                                                  item("Acidity of phenols", day: 2), item("Past paper", day: 4)])
+        Planner.cover(sections, goal: "Revise organic chemistry for my class test", days: 4, inOrder: true, in: &draft)
+        #expect(draft.items.map(\.title) == ["Electrophilic substitution of benzene", "Acidity of phenols",
+                                             "Revise Section 3: Carbonyls", "Past paper"])
+        #expect(draft.items[2].day == 2)
+        #expect(Planner.materialTopics("Just one line of notes").isEmpty)
+    }
+
+    @Test func spreadsAPlanPackedIntoDayOne() {
+        var packed = DraftPlan(title: "x", items: [item("Outline essay", minutes: 60), item("Draft essay", minutes: 70)])
+        Planner.spread(&packed, days: 5)
+        #expect(packed.items.map(\.day) == [1, 3])
+
+        var fine = DraftPlan(title: "x", items: [item("A", day: 1), item("B", day: 2), item("C", day: 3)])
+        Planner.spread(&fine, days: 6)
+        #expect(fine.items.map(\.day) == [1, 2, 3])   // already one item a day: left alone
+    }
+
+    @Test func thinStudyPlansGetAFloor() {
+        let thin = DraftPlan(title: "x", items: [item("Outline essay", "writing", minutes: 60), item("Research", "study", minutes: 70)])
+        #expect(Planner.effortFloor(thin, days: 5) == 225)
+        #expect(Planner.effortFloor(thin, days: 2) == nil)
+        #expect(Planner.effortFloor(DraftPlan(title: "x", items: [item("Easy run", "exercise")]), days: 7) == nil)
+    }
+
+    @Test func exerciseSessionsAreAtMostAnHour() {
+        var run = item("Long run", "exercise", minutes: 120)
+        let one = Planner.tidied(DraftPlan(title: "x", items: [run])).items[0]
+        #expect(one.minutes == 60)
+        run.subtasks = [DraftStep(title: "Warm up", minutes: 20), DraftStep(title: "Run", minutes: 100)]
+        let steps = Planner.tidied(DraftPlan(title: "x", items: [run])).items[0].subtasks.map(\.minutes)
+        #expect(steps == [10, 50])
+    }
+
+    @Test func goalPrioritiesComeOnlyFromStudentWords() {
+        let goal = "Prepare for exams: chemistry is urgent, history can wait, physics"
+        var draft = DraftPlan(title: "x", items: [item("Chemistry past paper"), item("History essay plan"),
+                                                  item("Physics formulas"), item("Rest and review")])
+        Planner.goalPriorities(Planner.goalTopics(goal), goal: goal, in: &draft)
+        #expect(draft.items.map(\.priority) == ["high", "low", "normal", "normal"])
+
+        var deadlineOnly = DraftPlan(title: "x", items: [item("Outline essay"), item("Draft essay")])
+        Planner.goalPriorities(Planner.goalTopics("Write my essay due Friday"), goal: "Write my essay due Friday", in: &deadlineOnly)
+        #expect(deadlineOnly.items.map(\.priority) == ["normal", "normal"])
     }
 }
 
