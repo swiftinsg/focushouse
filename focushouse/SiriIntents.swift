@@ -54,6 +54,7 @@ struct FocusHouseShortcuts: AppShortcutsProvider {
 /// Siri's create-reminder action: becomes a to-do on the Schedule tab.
 @AppIntent(schema: .reminders.createReminder)
 struct AddTodoIntent {
+    static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
     @Parameter var title: String
     @Parameter var dueDate: DateComponents?
     // The schema's other inputs; a to-do only keeps the title and due date.
@@ -233,7 +234,9 @@ enum TriggerEvent: String {
     }
 
     // ponytail: rebuilt from SwiftData on every query; fine for a student's few hundred tasks.
+    /// Empty while the phone is locked: task names and stress stay off the Lock Screen.
     static func entities(_ context: ModelContext) -> [TaskEntity] {
+        guard UIApplication.shared.isProtectedDataAvailable else { return [] }
         let (status, tasks, todos) = status(context)
         return tasks.map { entity($0, status) } + todos.map { entity($0, status) }
     }
@@ -267,12 +270,14 @@ enum TriggerEvent: String {
     /// Puts the last week and the next month into the on-device Spotlight index,
     /// replacing what was there. Called when the app goes to the background.
     static func index(_ context: ModelContext, now: Date = .now) async {
+        guard UIApplication.shared.isProtectedDataAvailable else { return }   // else it would empty the index
         let window = now.addingTimeInterval(-7 * 86_400)...now.addingTimeInterval(30 * 86_400)
         let all = entities(context).filter { e in
             e.dueDate.flatMap(Calendar.current.date(from:)).map(window.contains) ?? !e.isCompleted
         }
         try? context.save()   // `key` gives new tasks their id
-        let index = CSSearchableIndex.default()
+        // Protected: Spotlight and Siri can only read it while the phone is unlocked.
+        let index = CSSearchableIndex(name: "tasks", protectionClass: .complete)
         try? await index.deleteAppEntities(ofType: TaskEntity.self)
         try? await index.indexAppEntities(all)
     }
