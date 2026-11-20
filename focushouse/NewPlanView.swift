@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import SwiftData
 
@@ -10,6 +11,10 @@ struct NewPlanView: View {
     @State private var mode = PlanMode.today
     @State private var input = ""
     @State private var materials = ""
+    @State private var photos: [PhotosPickerItem] = []
+    @State private var importing = false
+    @State private var reading = false   // pulling text out of an attachment
+    @State private var materialNote: String?
     @State private var start = Date.nextFiveMinutes
     @State private var due = Calendar.current.date(byAdding: .day, value: 6, to: .now)!
     @State private var isWorking = false
@@ -87,10 +92,36 @@ struct NewPlanView: View {
                         TextField("Section 1: arenes, electrophilic substitution\nSection 2: other substituents…",
                                   text: $materials, axis: .vertical)
                             .lineLimit(3...12)
+                        HStack {
+                            PhotosPicker(selection: $photos, maxSelectionCount: 10, matching: .images) {
+                                Label("Photos", systemImage: "photo")
+                            }
+                            Spacer()
+                            if reading { ProgressView() }
+                            Spacer()
+                            Button { importing = true } label: { Label("PDF or file", systemImage: "doc") }
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(reading)
                     } header: {
                         Text("Study material (optional)").pixelHeader()
                     } footer: {
-                        Text("Paste your own notes or a syllabus, and each section becomes a task with subtasks. Label priorities in your list with words like \"urgent\" or \"can wait\".")
+                        if let materialNote { Text(materialNote).foregroundStyle(.orange) }
+                        else {
+                            Text("Paste your own notes or a syllabus, or attach a PDF or photos of it (read on your phone, nothing uploaded). Each section becomes a task with subtasks. Label priorities in your list with words like \"urgent\" or \"can wait\".")
+                        }
+                    }
+                    .onChange(of: photos) {
+                        guard !photos.isEmpty else { return }
+                        let items = photos
+                        photos = []
+                        Task { await attach { try await StudyMaterial.text(fromPhotos: items) } }
+                    }
+                    .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf, .image], allowsMultipleSelection: true) { result in
+                        switch result {
+                        case .success(let urls): Task { await attach { try await StudyMaterial.text(fromFiles: urls) } }
+                        case .failure(let error): materialNote = error.localizedDescription
+                        }
                     }
                 }
 
@@ -115,7 +146,7 @@ struct NewPlanView: View {
                                 .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.pixel)
-                            .disabled(isWorking || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .disabled(isWorking || reading || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                         Button("Enter tasks myself", action: makeManual)
                             .disabled(isWorking)
@@ -172,6 +203,20 @@ struct NewPlanView: View {
             question = asked.localizedDescription
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    /// Adds an attachment's text (or its outline) under what's already in the box.
+    private func attach(_ read: () async throws -> String) async {
+        reading = true
+        materialNote = nil
+        defer { reading = false }
+        do {
+            let (text, note) = await StudyMaterial.prepared(try await read())
+            if !text.isEmpty { materials = materials.isEmpty ? text : materials + "\n" + text }
+            materialNote = note
+        } catch {
+            materialNote = error.localizedDescription
         }
     }
 

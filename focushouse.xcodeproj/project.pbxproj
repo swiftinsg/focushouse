@@ -45,6 +45,7 @@
 		A3867229F9AB72A15DF8940A /* NewTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8F166292F19E0C9CA30987 /* NewTaskView.swift */; };
 		A48E56EBAE62015E9B5F1CBA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A444C467E91742D0651D4FC4 /* ContentView.swift */; };
 		A4FB8F803EE1263390EB6ECE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ABCE8B42060DDB0EEAE1D1F2 /* Assets.xcassets */; };
+		A5666D38609B3148D01B1BAE /* StudyMaterialTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0241D3BBC13839E018CBAFE /* StudyMaterialTests.swift */; };
 		AA83E237676E3F5575E20166 /* Upgrades.swift in Sources */ = {isa = PBXBuildFile; fileRef = 425BF9CFDBE211B8830DA862 /* Upgrades.swift */; };
 		AB32D878883EACA4958D4039 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E75D038DBE0B793FD049BAC /* WidgetSnapshot.swift */; };
 		ABFE21F416B8B3302B85CDEF /* OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F03E64056D1464FAFB95D8B9 /* OFL.txt */; };
@@ -56,6 +57,7 @@
 		C0DC2DA52C42E989DF3659C2 /* furniture_hobbies.json in Resources */ = {isa = PBXBuildFile; fileRef = C90CE457CBBC739C27E725DA /* furniture_hobbies.json */; };
 		CE47DFC66F4F7C12B43B51DF /* focushouseWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D0B42C0A62C1F205F9108762 /* focushouseWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CFB9C4A2855336EC45AA2E39 /* RestMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 216D92EE08BE865626356812 /* RestMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D27D3FEEA5200DAEFD721547 /* StudyMaterial.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B93916420BCA1611406D5B6 /* StudyMaterial.swift */; };
 		D6D558324E6EBB583432911B /* RoutineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B06BD775BF03FCA6965ED651 /* RoutineTests.swift */; };
 		E1D4D1A60CD7FB517F6D5116 /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64F92ADDF3F74CBB77A02ACD /* PlanView.swift */; };
 		E38B3C4377E0969A56773949 /* CalendarSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1CD91A0CDE5CA574A273977 /* CalendarSync.swift */; };
@@ -129,6 +131,7 @@
 		467FF050698CACDE38957FC8 /* focushouse.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = focushouse.entitlements; sourceTree = "<group>"; };
 		588E57AE54C98C0420D4CF3B /* SubtaskEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtaskEditor.swift; sourceTree = "<group>"; };
 		5AA8E533175C1BEC7F2C2DE0 /* Scheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scheduler.swift; sourceTree = "<group>"; };
+		5B93916420BCA1611406D5B6 /* StudyMaterial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyMaterial.swift; sourceTree = "<group>"; };
 		5C5D50B681C7FADA119A10FF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5C7414CE1C52301C202A7F59 /* Jersey10.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Jersey10.ttf; sourceTree = "<group>"; };
 		625339BA0FD04DE862AEEF7E /* HouseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HouseTests.swift; sourceTree = "<group>"; };
@@ -160,6 +163,7 @@
 		C604BE4A7FB6BFDB26C56247 /* House.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = House.swift; sourceTree = "<group>"; };
 		C769B08F1B6ED6CBA67C1E39 /* PinTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinTests.swift; sourceTree = "<group>"; };
 		C90CE457CBBC739C27E725DA /* furniture_hobbies.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = furniture_hobbies.json; sourceTree = "<group>"; };
+		D0241D3BBC13839E018CBAFE /* StudyMaterialTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyMaterialTests.swift; sourceTree = "<group>"; };
 		D0B42C0A62C1F205F9108762 /* focushouseWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = focushouseWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D86F0C7B0429D79C6C6BD7B6 /* Widgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widgets.swift; sourceTree = "<group>"; };
 		EFDA20FDB3B47659284A81AF /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -201,6 +205,7 @@
 				056ABEF2EDB00D1B7EF7E7DD /* ReflectionTests.swift */,
 				B06BD775BF03FCA6965ED651 /* RoutineTests.swift */,
 				8F23D453986A905C37C1585D /* SchedulerTests.swift */,
+				D0241D3BBC13839E018CBAFE /* StudyMaterialTests.swift */,
 				7535BBAB426B0F10326A64D6 /* TimetableTests.swift */,
 				45631C34A2B10C3BCF7F383B /* WidgetTests.swift */,
 			);
@@ -256,6 +261,7 @@
 				5AA8E533175C1BEC7F2C2DE0 /* Scheduler.swift */,
 				992D87DDF9AAA1400FBCA858 /* ScreenTime.swift */,
 				0DF8759D901E8A611D2454F3 /* SettingsView.swift */,
+				5B93916420BCA1611406D5B6 /* StudyMaterial.swift */,
 				588E57AE54C98C0420D4CF3B /* SubtaskEditor.swift */,
 				F43801DB9127B1FE54B19D8A /* TaskView.swift */,
 				F9E8928F5F4908A8B94995B6 /* Theme.swift */,
@@ -458,6 +464,7 @@
 				29D15B8B36EAAB80D0C3BF59 /* ReflectionTests.swift in Sources */,
 				D6D558324E6EBB583432911B /* RoutineTests.swift in Sources */,
 				52ECFC825D706AEAAE0DF9C1 /* SchedulerTests.swift in Sources */,
+				A5666D38609B3148D01B1BAE /* StudyMaterialTests.swift in Sources */,
 				FD88131FF6B7A549CB0DBE6F /* TimetableTests.swift in Sources */,
 				EBB99F2CFA39473D46A36167 /* WidgetTests.swift in Sources */,
 			);
@@ -502,6 +509,7 @@
 				3E22722E8BE1FC9742A2A2F3 /* Scheduler.swift in Sources */,
 				031DC524FE8978BA81807D01 /* ScreenTime.swift in Sources */,
 				B05709214144CE8616D010BB /* SettingsView.swift in Sources */,
+				D27D3FEEA5200DAEFD721547 /* StudyMaterial.swift in Sources */,
 				1BB41C7D1F70F46AC5A0D837 /* SubtaskEditor.swift in Sources */,
 				3D724E239E9034A4C2538BCE /* TaskView.swift in Sources */,
 				E80EC4678C57E25196127378 /* Theme.swift in Sources */,
