@@ -112,6 +112,7 @@ struct CheckInSheet: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 .padding()
+                .background(Color.paper)   // the form scrolls under it, not through it
             }
             .paperBackground()
         }
