@@ -27,11 +27,13 @@
 		3684C6CD278690EE7E9473D5 /* PlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DB80D5B9CC2F8B531114A96 /* PlannerTests.swift */; };
 		3D724E239E9034A4C2538BCE /* TaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F43801DB9127B1FE54B19D8A /* TaskView.swift */; };
 		3E22722E8BE1FC9742A2A2F3 /* Scheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AA8E533175C1BEC7F2C2DE0 /* Scheduler.swift */; };
+		3E27693DF2E0B4776915A09C /* Proof.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB64AA238AFF46ECA8AE2261 /* Proof.swift */; };
 		4733B7F34DF4B5129F7021B3 /* RestLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FD95A3351594CB129A00CB /* RestLog.swift */; };
 		518122F66462C78DF6CE9BC9 /* Reflections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27232D4D6341F9A882C7D129 /* Reflections.swift */; };
 		52ECFC825D706AEAAE0DF9C1 /* SchedulerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F23D453986A905C37C1585D /* SchedulerTests.swift */; };
 		5368604F31D8738A8EA4C481 /* HouseRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F010BD141A1EC48FCE43D7F4 /* HouseRules.swift */; };
 		5A49FCD18CEB6B022EA0052D /* HomeTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BCB5E1180FD7908A27DC51 /* HomeTour.swift */; };
+		5DE6A3F564B14E7FF51E8935 /* ProofTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49C1C489073FFE5640261CFA /* ProofTests.swift */; };
 		651F02B71B5A6AA17BE55787 /* TodoItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35969715D056595DBCEF12B /* TodoItem.swift */; };
 		6A27B4E181CDF13A102A842D /* WidgetSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B20CF3834A2FE4D4ECD38B /* WidgetSync.swift */; };
 		73D3FF0F164626E1528658BD /* Hints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FEFBB34BDDD22D97DFEBAB6 /* Hints.swift */; };
@@ -134,6 +136,7 @@
 		45631C34A2B10C3BCF7F383B /* WidgetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetTests.swift; sourceTree = "<group>"; };
 		45CCE803280B06BF22779D30 /* RestMonitor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RestMonitor.entitlements; sourceTree = "<group>"; };
 		467FF050698CACDE38957FC8 /* focushouse.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = focushouse.entitlements; sourceTree = "<group>"; };
+		49C1C489073FFE5640261CFA /* ProofTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofTests.swift; sourceTree = "<group>"; };
 		588E57AE54C98C0420D4CF3B /* SubtaskEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtaskEditor.swift; sourceTree = "<group>"; };
 		5AA8E533175C1BEC7F2C2DE0 /* Scheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scheduler.swift; sourceTree = "<group>"; };
 		5B93916420BCA1611406D5B6 /* StudyMaterial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyMaterial.swift; sourceTree = "<group>"; };
@@ -171,6 +174,7 @@
 		C604BE4A7FB6BFDB26C56247 /* House.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = House.swift; sourceTree = "<group>"; };
 		C769B08F1B6ED6CBA67C1E39 /* PinTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinTests.swift; sourceTree = "<group>"; };
 		C90CE457CBBC739C27E725DA /* furniture_hobbies.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = furniture_hobbies.json; sourceTree = "<group>"; };
+		CB64AA238AFF46ECA8AE2261 /* Proof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Proof.swift; sourceTree = "<group>"; };
 		D0241D3BBC13839E018CBAFE /* StudyMaterialTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyMaterialTests.swift; sourceTree = "<group>"; };
 		D0B42C0A62C1F205F9108762 /* focushouseWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = focushouseWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D86F0C7B0429D79C6C6BD7B6 /* Widgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widgets.swift; sourceTree = "<group>"; };
@@ -210,6 +214,7 @@
 				C769B08F1B6ED6CBA67C1E39 /* PinTests.swift */,
 				8F93E3356CC075F06AB283A6 /* PlannerEval.swift */,
 				9DB80D5B9CC2F8B531114A96 /* PlannerTests.swift */,
+				49C1C489073FFE5640261CFA /* ProofTests.swift */,
 				056ABEF2EDB00D1B7EF7E7DD /* ReflectionTests.swift */,
 				B06BD775BF03FCA6965ED651 /* RoutineTests.swift */,
 				8F23D453986A905C37C1585D /* SchedulerTests.swift */,
@@ -266,6 +271,7 @@
 				264D348FE2D5FCA52189074D /* Planner.swift */,
 				1B5798B29D351AC822D6EC73 /* PlanTimeline.swift */,
 				64F92ADDF3F74CBB77A02ACD /* PlanView.swift */,
+				CB64AA238AFF46ECA8AE2261 /* Proof.swift */,
 				27232D4D6341F9A882C7D129 /* Reflections.swift */,
 				C315DA44F96EC043EDA1C801 /* Reminders.swift */,
 				5AA8E533175C1BEC7F2C2DE0 /* Scheduler.swift */,
@@ -472,6 +478,7 @@
 				2FAE874E7B776A1949B28796 /* PinTests.swift in Sources */,
 				8187886910D17D7D67F448E4 /* PlannerEval.swift in Sources */,
 				3684C6CD278690EE7E9473D5 /* PlannerTests.swift in Sources */,
+				5DE6A3F564B14E7FF51E8935 /* ProofTests.swift in Sources */,
 				29D15B8B36EAAB80D0C3BF59 /* ReflectionTests.swift in Sources */,
 				D6D558324E6EBB583432911B /* RoutineTests.swift in Sources */,
 				52ECFC825D706AEAAE0DF9C1 /* SchedulerTests.swift in Sources */,
@@ -516,6 +523,7 @@
 				FBD48DF6458548D1899A696B /* PlanTimeline.swift in Sources */,
 				E1D4D1A60CD7FB517F6D5116 /* PlanView.swift in Sources */,
 				0121509A343BDBC1A1D608FD /* Planner.swift in Sources */,
+				3E27693DF2E0B4776915A09C /* Proof.swift in Sources */,
 				518122F66462C78DF6CE9BC9 /* Reflections.swift in Sources */,
 				84D2A5D7808E5880540AD97A /* Reminders.swift in Sources */,
 				AD0E3DC2D75E479BCBEB59DB /* RestLog.swift in Sources */,
@@ -840,6 +848,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = focushouse;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "focushouse plans around your calendar events and can add your tasks to Calendar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Take an optional photo of finished work at check-in. It stays on your phone.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -870,6 +879,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = focushouse;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "focushouse plans around your calendar events and can add your tasks to Calendar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Take an optional photo of finished work at check-in. It stays on your phone.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (

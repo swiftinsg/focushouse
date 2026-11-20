@@ -49,6 +49,7 @@ targets:
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "focushouse plans around your calendar events and can add your tasks to Calendar."
+        INFOPLIST_KEY_NSCameraUsageDescription: "Take an optional photo of finished work at check-in. It stays on your phone."
         SWIFT_VERSION: "6.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   RestMonitor:

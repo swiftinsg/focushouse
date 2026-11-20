@@ -17,6 +17,7 @@ struct FocusHouseApp: App {
         CheckIn.shared.restore(container.mainContext)
         Theme.registerFonts()
         Hint.setUp()
+        Proof.purge()   // check-in photos older than 30 days
     }
 
     var body: some Scene {

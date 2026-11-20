@@ -87,13 +87,14 @@ struct KeptTask: Codable, Equatable {
     var day: Date?         // the day its bricks count: when it was ticked
     var earns: Bool
     var actual: Int? = nil
+    var photo: Bool? = nil   // a check-in photo matched: small brick bonus
 }
 
 extension KeptTask {
     @MainActor init(_ t: PlanTask) {
         self.init(title: t.title, category: t.category, priority: t.priority, minutes: t.minutes,
                   estimate: t.estimate, start: t.start, day: t.doneAt ?? t.start ?? t.plan?.start,
-                  earns: t.earnsBricks, actual: t.actual)
+                  earns: t.earnsBricks, actual: t.actual, photo: t.uid.map { Proof.matched($0.uuidString) })
     }
 
     static let key = "keptTasks"
@@ -133,7 +134,8 @@ extension KeptTask {
             if let start = t.start { load.append((start, House.stress(minutes: t.minutes, r))) }
             if t.earns, let day = t.day {
                 let focused = t.start.map { quiet.covers(start: $0, minutes: t.minutes) } ?? false
-                bricks.append((day, House.bricks(minutes: t.estimate ?? t.minutes, actual: t.actual, r.effort, focused: focused)))
+                let earned = House.bricks(minutes: t.estimate ?? t.minutes, actual: t.actual, r.effort, focused: focused)
+                bricks.append((day, t.photo == true ? Proof.bonus(earned) : earned))
             }
         }
         var todosPaid: [Date: Int] = [:]   // per tick day, up to House.todoDailyCount

@@ -8,11 +8,18 @@ struct CheckInSheet: View {
     @State private var minutes: Int
     @State private var feeling: Int?
     @State private var note = ""
+    @State private var photo: UIImage?
+    @State private var verdict: String?
+    @State private var checking = false
+    @State private var camera = false
 
     /// The time starts at what was recorded before, else the estimate.
     init(task: PlanTask) {
         self.task = task
         _minutes = State(initialValue: task.actual ?? task.minutes)
+        let id = task.uid?.uuidString
+        _photo = State(initialValue: id.flatMap(Proof.image))
+        _verdict = State(initialValue: id.map(Proof.matched) == true ? "Photo matched: bonus bricks" : nil)
     }
 
     private static let feelings = [("😫", "Drained"), ("😕", "Tiring"), ("😐", "OK"), ("🙂", "Good"), ("😄", "Energised")]
@@ -68,6 +75,24 @@ struct CheckInSheet: View {
                 } footer: {
                     Text("It stays on your phone. Your notes are deleted after 30 days.")
                 }
+
+                if Proof.hasCamera || photo != nil {
+                    Section {
+                        if let photo {
+                            Image(uiImage: photo).resizable().scaledToFit().frame(maxHeight: 220)
+                        }
+                        if checking { ProgressView("Checking the photo…") }
+                        else if let verdict { Text(verdict).font(.subheadline) }
+                        if Proof.hasCamera {
+                            Button(photo == nil ? "Take a photo of your work" : "Retake photo", systemImage: "camera") { camera = true }
+                                .disabled(checking)
+                        }
+                    } header: {
+                        Text("Photo (optional)").pixelHeader()
+                    } footer: {
+                        Text("A photo that shows the work earns a small bonus. No photo is fine: not every task has something to show. Photos stay on your phone and are deleted after \(Proof.keepDays) days.")
+                    }
+                }
             }
             // Save and Skip stay at the bottom of the screen, under the form.
             .safeAreaInset(edge: .bottom) {
@@ -90,8 +115,30 @@ struct CheckInSheet: View {
             }
             .paperBackground()
         }
+        .fullScreenCover(isPresented: $camera) {
+            CameraView { image in Task { await took(image) } }.ignoresSafeArea()
+        }
         .presentationDetents([.large])
         .interactiveDismissDisabled(feeling != nil)
+    }
+}
+
+extension CheckInSheet {
+    /// Saves the photo as the task's record, then asks the model if it shows the work.
+    private func took(_ image: UIImage) async {
+        let id = task.key
+        try? Proof.save(image, for: id)
+        photo = Proof.image(id)
+        guard let photo else { return }
+        checking = true
+        defer { checking = false }
+        guard let result = await Proof.check(photo, title: task.title) else {
+            verdict = Proof.canCheck ? "Couldn't check it this time. The photo is saved." : "Saved. Checking photos needs Apple Intelligence."
+            return
+        }
+        Proof.setMatched(id, result.matches)
+        verdict = result.matches ? "Photo matched: bonus bricks"
+            : "Couldn't tell this shows \(task.title) (it looks like \(result.seen.lowercased())). No bricks lost."
     }
 }
 
