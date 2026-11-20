@@ -140,7 +140,7 @@ private struct TourOverlay: View {
             .accessibilityAddTraits(.isModal)
         }
         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.5, bounce: 0.25), value: index)
-        .tint(.brick)
+        .tint(.navy)
     }
 
     private func arrowImage(_ symbol: String, _ edge: Alignment) -> some View {

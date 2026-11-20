@@ -68,7 +68,7 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(state.title)
                             .font(.pixel(30, relativeTo: .title))
-                            .foregroundStyle(state == .calm || state == .resting ? Color.grass : Color.brick)
+                            .foregroundStyle(state == .calm || state == .resting ? Color.grass : Color.alarm)
                         Text(state.message).font(.subheadline).foregroundStyle(.secondary)
                     }
                     .tour(.status)
@@ -76,7 +76,7 @@ struct HomeView: View {
                     BrickMeter(title: "Stress this week",
                                detail: streak == 0 ? "Low" : "\(streak) day\(streak == 1 ? "" : "s") in a row",
                                filled: min(10, Int((Double(streak) / 6 * 10).rounded())),
-                               color: streak >= 4 ? .brick : streak >= 2 ? .orange : .grass)
+                               color: streak >= 4 ? .alarm : streak >= 2 ? .orange : .grass)
                         .tour(.stress)
                     BrickMeter(title: "Rest today",
                                detail: "\(Self.duration(restToday)) / \(Self.duration(House.restGoal)) away",
@@ -432,7 +432,7 @@ struct WeeklySummaryView: View {
                     BrickMeter(title: d.date.formatted(.dateTime.weekday(.abbreviated)),
                                detail: "\(HomeView.duration(TimeInterval(d.work * 60))) work · \(HomeView.duration(d.rest)) rest",
                                filled: min(10, d.stress * 5 / House.stressfulMinutes),
-                               color: d.stressful ? .brick : d.stress * 2 >= House.stressfulMinutes ? .orange : .grass)
+                               color: d.stressful ? .alarm : d.stress * 2 >= House.stressfulMinutes ? .orange : .grass)
                 }
 
                 if !stats.top.isEmpty {

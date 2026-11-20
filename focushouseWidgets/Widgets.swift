@@ -187,7 +187,7 @@ struct HouseView: View {
     private var title: some View {
         Text(entry.leadsWithRest ? "Rest" : entry.state.title)
             .font(.pixel(16).weight(.bold))
-            .foregroundStyle(entry.state == .calm || entry.state == .resting ? Color.grass : Color.brick)
+            .foregroundStyle(entry.state == .calm || entry.state == .resting ? Color.grass : Color.alarm)
     }
 
     private var small: some View {
@@ -336,7 +336,7 @@ struct WeekView: View {
             HStack {
                 Text("WEEK").font(.pixel(14).weight(.bold))
                 Spacer()
-                Label("Work", systemImage: "square.fill").foregroundStyle(Color.brick)
+                Label("Work", systemImage: "square.fill").foregroundStyle(Color.navy)
                 Label("Rest", systemImage: "square.fill").foregroundStyle(.blue)
             }
             .font(.caption2)
@@ -344,7 +344,7 @@ struct WeekView: View {
                 ForEach(days.indices, id: \.self) { i in
                     VStack(spacing: 3) {
                         HStack(alignment: .bottom, spacing: 2) {
-                            bar(work[i] / top, .brick)
+                            bar(work[i] / top, .navy)
                             bar(rest[i] / top, .blue)
                         }
                         Text(days[i].formatted(.dateTime.weekday(.narrow))).font(.pixel(11))

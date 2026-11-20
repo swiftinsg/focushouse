@@ -27,7 +27,7 @@ struct FocusHouseApp: App {
                 Tab("Schedule", image: "tab.schedule") { ContentView() }
                 Tab("Calendar", image: "tab.calendar") { CalendarView() }
             }
-            .tint(.brick)
+            .tint(.navy)
             .onOpenURL { WidgetSync.open($0, container.mainContext) }
             // Calendar edits made outside the app (or on a synced Google calendar).
             .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in pullCalendar() }

@@ -104,7 +104,10 @@ struct PlanTimeline: View {
                             Text("\(count) task\(count == 1 ? "" : "s")").font(.caption2)
                                 .opacity(0.8)
                         }
-                        .frame(width: 64, height: 68)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                        .padding(.vertical, 6)
+                        .frame(width: 64)
+                        .frame(minHeight: 68)
                         .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
                         .background(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary),
                                     in: Rectangle())

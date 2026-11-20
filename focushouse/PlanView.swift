@@ -48,7 +48,12 @@ struct PlanView: View {
             toolbarItems
         }
         .sheet(item: $editing) { SubtaskEditor(plan: plan, name: $0.name, subtasks: $0.tasks) }
-        .task { plan.reflow() }   // pick up Calendar changes made since last time
+        .task {
+            // Blank tasks are leftovers (a subtask sheet closed without saving): drop them,
+            // as saveSubtasks does. Then pick up Calendar changes made since last time.
+            let blank = plan.tasks.filter { !$0.done && $0.title.trimmingCharacters(in: .whitespaces).isEmpty }
+            if blank.isEmpty { plan.reflow() } else { plan.delete(blank) }
+        }
     }
 
     private var list: some View {
@@ -419,6 +424,9 @@ private struct TaskRow: View {
     var onDelete: () -> Void
     var onAddBreaks: (Int) -> Void
 
+    @FocusState private var editingTitle: Bool
+    @State private var titleBefore = ""
+
     private var isLong: Bool { !task.done && task.minutes > Plan.longTask && task.category != Plan.freeTime }
 
     /// Setting a new time fixes the task there (same as pinning).
@@ -445,6 +453,14 @@ private struct TaskRow: View {
                             .accessibilityLabel("Low priority")
                     }
                     TextField("Task", text: $task.title)
+                        .focused($editingTitle)
+                        .onChange(of: editingTitle) {
+                            // Clearing the name and leaving keeps the old one, so no blank task is left behind.
+                            if editingTitle { titleBefore = task.title }
+                            else if task.title.trimmingCharacters(in: .whitespaces).isEmpty {
+                                task.title = titleBefore.isEmpty ? "New task" : titleBefore
+                            }
+                        }
                         .strikethrough(task.done)
                         .foregroundStyle(task.done ? .secondary : .primary)
                     if task.pinned != nil {
@@ -459,10 +475,13 @@ private struct TaskRow: View {
                             .font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
                     } else {
                         HStack(spacing: 4) {
-                            DatePicker("Start time", selection: time, displayedComponents: [.date, .hourAndMinute])
+                            // Time only: the section header already says the day. A date here
+                            // squeezed the end time into a one-letter-wide column and stretched the row.
+                            DatePicker("Start time", selection: time, displayedComponents: .hourAndMinute)
                                 .labelsHidden()
                             Text("– \(end.formatted(date: .omitted, time: .shortened))")
                                 .foregroundStyle(.secondary).monospacedDigit()
+                                .fixedSize()
                         }
                         .font(.subheadline)
                     }

@@ -2,6 +2,7 @@ import SwiftUI
 import TipKit
 import SwiftData
 import EventKit
+import EventKitUI
 
 /// Home: a month calendar, then everything on the picked day. That's the
 /// scheduled tasks from every plan, plus inbox to-dos due that day.
@@ -12,11 +13,15 @@ struct CalendarView: View {
     @State private var events: [EKEvent] = []
     @State private var deleting: EKEvent?   // a repeating event, asking which ones
     @State private var calendarError: String?
+    @State private var addingEvent = false
+    /// Calendar events ticked off here ("id|start", newline-separated). They stay in
+    /// Calendar; focushouse just stops showing them. ponytail: grows forever, prune old days if it ever matters.
+    @AppStorage("doneEvents") private var doneEvents = ""
 
     private let cal = Calendar.current
 
     private var tasksOnDay: [PlanTask] {
-        tasks.filter { $0.start.map { cal.isDate($0, inSameDayAs: day) } ?? false }
+        tasks.filter { !$0.done && ($0.start.map { cal.isDate($0, inSameDayAs: day) } ?? false) }
             .sorted { $0.start! < $1.start! }
     }
     /// How many unfinished things each day has, for the rings.
@@ -46,6 +51,7 @@ struct CalendarView: View {
                                 row(task)
                             }
                         }
+                        .transition(.gone)
                         .swipeActions {
                             if task.eventID != nil {
                                 Button("Remove from Calendar", systemImage: "calendar.badge.minus", role: .destructive) {
@@ -62,16 +68,18 @@ struct CalendarView: View {
                                 Text("Due · not planned yet").font(.caption).foregroundStyle(.orange)
                             }
                         }
+                        .transition(.gone)
                     }
-                    if tasksOnDay.isEmpty && todosOnDay.isEmpty && events.isEmpty {
+                    if tasksOnDay.isEmpty && todosOnDay.isEmpty && shownEvents.isEmpty {
                         Text("Nothing on this day").foregroundStyle(.secondary)
                     }
                 }
 
-                if !events.isEmpty {
+                if !shownEvents.isEmpty {
                     Section(pixel: "In your Calendar") {
-                        ForEach(events, id: \.calendarItemIdentifier) { event in
+                        ForEach(shownEvents, id: \.calendarItemIdentifier) { event in
                             eventRow(event)
+                                .transition(.gone)
                                 .swipeActions {
                                     Button("Delete", systemImage: "trash", role: .destructive) {
                                         if event.hasRecurrenceRules { deleting = event } else { delete(event) }
@@ -82,6 +90,14 @@ struct CalendarView: View {
                 }
             }
             .pixelTitle("Calendar")
+            .toolbar {
+                Button("Add event", systemImage: "plus") {
+                    Task { if await CalendarSync.requestAccess() { addingEvent = true } else { calendarError = "Allow Calendar access in Settings to add events." } }
+                }
+            }
+            .sheet(isPresented: $addingEvent, onDismiss: { Task { await loadEvents() } }) {
+                EventEditor(start: newEventStart).ignoresSafeArea()
+            }
             .task(id: day) { await loadEvents() }
             .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in Task { await loadEvents() } }
             .confirmationDialog("This is a repeating event.", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
@@ -89,11 +105,18 @@ struct CalendarView: View {
                 Button("Delete This Event Only", role: .destructive) { delete(event) }
                 Button("Delete All Future Events", role: .destructive) { delete(event, future: true) }
             }
-            .alert("Couldn't delete", isPresented: Binding(get: { calendarError != nil }, set: { if !$0 { calendarError = nil } })) {
+            .alert("Calendar", isPresented: Binding(get: { calendarError != nil }, set: { if !$0 { calendarError = nil } })) {
                 Button("OK") {}
             } message: { Text(calendarError ?? "") }
             .navigationDestination(for: Plan.self) { PlanView(plan: $0) }
         }
+    }
+
+    /// The picked day at the next whole hour (or 9 AM for a day with no time yet today).
+    private var newEventStart: Date {
+        let now = Date.now
+        if cal.isDateInToday(day) { return cal.nextDate(after: now, matching: DateComponents(minute: 0), matchingPolicy: .nextTime) ?? now }
+        return cal.date(bySettingHour: 9, minute: 0, second: 0, of: day) ?? day
     }
 
     private func loadEvents() async {
@@ -107,8 +130,18 @@ struct CalendarView: View {
         Task { await loadEvents() }
     }
 
+    private func key(_ event: EKEvent) -> String {
+        "\(event.calendarItemIdentifier)|\(event.startDate.timeIntervalSinceReferenceDate)"
+    }
+    private var shownEvents: [EKEvent] {
+        let done = Set(doneEvents.split(separator: "\n").map(String.init))
+        return events.filter { !done.contains(key($0)) }
+    }
+
     private func eventRow(_ event: EKEvent) -> some View {
         HStack(spacing: 12) {
+            // BouncyCheck runs this inside withAnimation, so the row pops then slides away.
+            BouncyCheck(done: false, label: "Mark done") { doneEvents += key(event) + "\n" }
             Rectangle().fill(Color(cgColor: event.calendar.cgColor)).frame(width: 4)
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title ?? "Event")
@@ -117,7 +150,6 @@ struct CalendarView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
-        .accessibilityElement(children: .combine)
     }
 
     private func row(_ task: PlanTask) -> some View {
@@ -213,3 +245,40 @@ struct MonthGrid: View {
         return Array(repeating: nil, count: blanks) + (0..<count).map { cal.date(byAdding: .day, value: $0, to: first) }
     }
 }
+
+extension AnyTransition {
+    /// A ticked row leaving: slides right, shrinks and fades.
+    static var gone: AnyTransition {
+        .asymmetric(insertion: .opacity,
+                    removal: .move(edge: .trailing).combined(with: .scale(scale: 0.6)).combined(with: .opacity))
+    }
+}
+
+/// Apple's own new-event screen, starting at `start` for an hour.
+struct EventEditor: UIViewControllerRepresentable {
+    let start: Date
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> EKEventEditViewController {
+        let event = EKEvent(eventStore: CalendarSync.store)
+        event.startDate = start
+        event.endDate = start.addingTimeInterval(3600)
+        event.calendar = CalendarSync.store.defaultCalendarForNewEvents
+        let editor = EKEventEditViewController()
+        editor.eventStore = CalendarSync.store
+        editor.event = event
+        editor.editViewDelegate = context.coordinator
+        return editor
+    }
+
+    func updateUIViewController(_ editor: EKEventEditViewController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(dismiss: dismiss) }
+
+    final class Coordinator: NSObject, EKEventEditViewDelegate {
+        let dismiss: DismissAction
+        init(dismiss: DismissAction) { self.dismiss = dismiss }
+        // The editor saves the event itself on Add.
+        func eventEditViewController(_ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction) { dismiss() }
+    }
+}
+

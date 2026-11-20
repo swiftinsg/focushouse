@@ -26,7 +26,11 @@ extension Color {
     static let paper = Color(light: 0xFFF3DC, dark: 0x1C1826)
     static let card = Color(light: 0xFFFFFF, dark: 0x2A2436)
     static let track = Color(light: 0xEDE6DA, dark: 0x3A3348)
-    static let brick = Color(light: 0xB34A34, dark: 0xD9664D)
+    /// Brick face: white-blue, like the house walls. Mortar/tint is `navy`.
+    static let brick = Color(light: 0xEEF3F8, dark: 0xDCE6EF)
+    static let navy = Color(light: 0x1E5E81, dark: 0x7FB2D6)
+    /// Warnings (stressful days, damaged house).
+    static let alarm = Color(light: 0xB34A34, dark: 0xD9664D)
     static let grass = Color(light: 0x417A3A, dark: 0x74B463)
     static let gold = Color(light: 0xFFE8B0, dark: 0x8A6A2C)
     static let wall = Color(light: 0xF6EFE2, dark: 0x332C40)
@@ -168,6 +172,7 @@ struct BrickMeter: View {
                     Rectangle().fill(Color.track).frame(height: 18)
                         .overlay {
                             Rectangle().fill(color)
+                                .overlay(Rectangle().strokeBorder(Color.navy.opacity(0.6), lineWidth: 2))
                                 .scaleEffect(i < shown ? 1 : 0.2)
                                 .opacity(i < shown ? 1 : 0)
                                 .animation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.5).delay(Double(i) * 0.06), value: shown)

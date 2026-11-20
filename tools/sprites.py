@@ -21,7 +21,7 @@ ICONS = {
     "tab.calendar": ["KKKKKKKK", "K.K..K.K", "KKKKKKKK", "K......K", "K.KK.K.K", "K......K", "K.K.KK.K", "KKKKKKKK"],
     "icon.brick": ["KKKKKKKKK", "KRRRKRRRK", "KKKKKKKKK", "KRKRRRKRK", "KKKKKKKKK"],
 }
-ICON_PALETTE = {"K": "#2B2340", "R": "#B34A34"}
+ICON_PALETTE = {"K": "#0f3750", "R": "#eef3f8"}
 
 
 def png(rows, palette, scale=1):
