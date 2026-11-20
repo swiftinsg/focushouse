@@ -20,7 +20,7 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            PixelList {
                 Section {
                     Toggle("Follow a routine", isOn: $useRoutine.animation())
                     if useRoutine {
@@ -28,7 +28,7 @@ struct SettingsView: View {
                         DatePicker("Bedtime", selection: minutesBinding($bed), displayedComponents: .hourAndMinute)
                     }
                 } header: {
-                    Text("My routine")
+                    Text("My routine").pixelHeader()
                 } footer: {
                     Text(useRoutine ? "Tasks are only scheduled between wake-up and bedtime\(hasSchool ? ", outside school hours" : "")."
                                     : "No routine (e.g. holidays): tasks can go anywhere from 8 AM to 11 PM, around your Calendar events.")
@@ -46,7 +46,7 @@ struct SettingsView: View {
                             Label("Add timetable to Calendar", systemImage: "tablecells")
                         }
                     } header: {
-                        Text("School")
+                        Text("School").pixelHeader()
                     } footer: {
                         Text("Turn off for school holidays. Add your timetable from a photo or PDF so plans also avoid lessons that run late, like CCAs.")
                     }
@@ -55,7 +55,7 @@ struct SettingsView: View {
                     Toggle("Add new plans to Calendar automatically", isOn: $autoAddToCalendar)
                     Toggle("Ask when I'm free each time", isOn: $askFreeTime)
                 } header: {
-                    Text("Calendar")
+                    Text("Calendar").pixelHeader()
                 } footer: {
                     Text("When \"Ask when I'm free\" is on, each new plan asks for your free time instead of using your routine. Calendar events are still avoided.")
                 }
@@ -65,23 +65,23 @@ struct SettingsView: View {
                             if on { Task { screenTimeRest = await ScreenTime.enable() } } else { ScreenTime.disable() }
                         }
                 } header: {
-                    Text("Rest")
+                    Text("Rest").pixelHeader()
                 } footer: {
                     Text(screenTimeRest
-                         ? "Rest is \(Int(RestLog.minBreak / 3600)) hours or more in a row without using your phone. \(Int(House.restGoal / 3600)) hours of rest in a day repairs your house a step."
+                         ? "Rest is \(Int(RestLog.minBreak / 3600)) hours or more in a row without using your phone. \(Int(House.restGoal / 3600)) hours of rest in a day repairs your house a step. Tasks done with your phone down the whole time earn 50% more bricks."
                          : "Rest is \(Int(RestLog.minBreak / 3600)) hours or more in a row away from focushouse. It can't see other apps, so turn on Screen Time to count only time off your whole phone.")
                 }
                 Section {
                     Toggle("Weekly summary", isOn: $summaryOn)
                 } header: {
-                    Text("Wellbeing")
+                    Text("Wellbeing").pixelHeader()
                 } footer: {
                     Text("A page from Home's \"Your week\" card: your stress, rest and finished tasks over the last 7 days, what weighed on you most, and a few words from the on-device AI.")
                 }
                 Section {
                     Toggle("Show house damage on widgets", isOn: $showDamage)
                 } header: {
-                    Text("Widgets")
+                    Text("Widgets").pixelHeader()
                 } footer: {
                     Text(showDamage ? "Widgets show your house as it is, even on hard days."
                                     : "On hard days, widgets show your rest instead of a damaged house.")
@@ -94,7 +94,7 @@ struct SettingsView: View {
                         LabeledContent("Weekends & holidays", value: hoursAndMinutes(limitOff))
                     }
                 } header: {
-                    Text("Daily work limit")
+                    Text("Daily work limit").pixelHeader()
                 } footer: {
                     VStack(alignment: .leading) {
                         Text("New plans add a free-time break once a day goes over this. Research links more than 5 h of study a day to more anxiety in teens.")
@@ -115,7 +115,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("My pace")
+                    Text("My pace").pixelHeader()
                 } footer: {
                     Text(pace.isEmpty
                          ? "After you finish \(Planner.paceRunway) tasks of a kind, the AI learns how long they really take you."
@@ -131,7 +131,7 @@ struct SettingsView: View {
                         CalendarTipView()
                     }
                 } header: {
-                    Text("Help")
+                    Text("Help").pixelHeader()
                 } footer: {
                     Text("Replays the tour of Home.")
                 }

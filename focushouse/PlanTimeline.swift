@@ -107,7 +107,8 @@ struct PlanTimeline: View {
                         .frame(width: 64, height: 68)
                         .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
                         .background(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.tertiary),
-                                    in: RoundedRectangle(cornerRadius: 14))
+                                    in: Rectangle())
+                        .overlay(Rectangle().strokeBorder(Color.ink, lineWidth: selected ? 3 : 0))
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(selected ? .isSelected : [])
@@ -200,8 +201,8 @@ struct PlanTimeline: View {
             .padding(.horizontal, 10).padding(.vertical, 5)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .frame(height: height, alignment: .topLeading)
-            .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.separator, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+            .background(.fill.quaternary)
+            .overlay(Rectangle().strokeBorder(.separator, style: StrokeStyle(lineWidth: 2, dash: [4, 4])))
             .padding(.leading, gutter)
             .offset(y: y(range.lowerBound, from: from) + top)
     }
@@ -242,10 +243,10 @@ struct PlanTimeline: View {
         .frame(height: frame.height)
         .background(color.opacity(isDragging ? 0.3 : 0.15))
         .background(.background)   // solid underneath, so hour lines don't show through
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(Rectangle().strokeBorder(color, lineWidth: 2))
         .shadow(color: .black.opacity(isDragging ? 0.2 : 0), radius: 8, y: 4)
         .scaleEffect(isDragging ? 1.02 : 1)
-        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 10))
+        .contentShape(.contextMenuPreview, Rectangle())
         .contextMenu { menu(for: task) }
         .gesture(task.done ? nil : move(task))
         .accessibilityElement(children: .combine)

@@ -23,7 +23,7 @@ struct NewPlanView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            PixelList {
                 Section {
                     Picker("Mode", selection: $mode) {
                         ForEach(PlanMode.allCases, id: \.self) { Text($0.rawValue) }
@@ -33,7 +33,7 @@ struct NewPlanView: View {
                     .listRowInsets(EdgeInsets())
                 } footer: {
                     Text(mode == .today ? "Input your messy to-do list into a timed plan for today."
-                                        : "Break one big goal into steps spread over several days.")
+                                        : "Break one big goal into multiple tasks over several days.")
                 }
 
                 Section {
@@ -42,7 +42,7 @@ struct NewPlanView: View {
                         .lineLimit(4...10)
                         .onChange(of: input) { question = nil }
                 } header: {
-                    Text(mode == .today ? "Dump your to-do list" : "What's your goal?")
+                    Text(mode == .today ? "Dump your to-do list" : "What's your goal?").pixelHeader()
                 } footer: {
                     if let question {
                         Label(question, systemImage: "questionmark.bubble.fill").foregroundStyle(.orange)
@@ -68,7 +68,7 @@ struct NewPlanView: View {
                 }
 
                 Section {
-                    DatePicker("Start", selection: $start, in: Date.now.addingTimeInterval(-3600)...,
+                    DatePicker("Start", selection: $start, in: Date.now...,
                                displayedComponents: [.date, .hourAndMinute])
                     if mode == .goal {
                         DatePicker("Finish by", selection: $due,
@@ -77,7 +77,7 @@ struct NewPlanView: View {
                         Text("\(days) day\(days == 1 ? "" : "s")").foregroundStyle(.secondary)
                     }
                 } header: {
-                    Text("When")
+                    Text("When").pixelHeader()
                 } footer: {
                     Text("Plan ahead by picking a later start, and times are fitted around your routine and calendar.")
                 }
@@ -88,14 +88,14 @@ struct NewPlanView: View {
                                   text: $materials, axis: .vertical)
                             .lineLimit(3...12)
                     } header: {
-                        Text("Study material (optional)")
+                        Text("Study material (optional)").pixelHeader()
                     } footer: {
                         Text("Paste your own notes or a syllabus, and each section becomes a task with subtasks. Label priorities in your list with words like \"urgent\" or \"can wait\".")
                     }
                 }
 
                 if askFreeTime {
-                    Section("When are you free?") {
+                    Section(pixel: "When are you free?") {
                         DatePicker("From", selection: $freeFrom, displayedComponents: .hourAndMinute)
                         DatePicker("Until", selection: $freeUntil, displayedComponents: .hourAndMinute)
                     }
@@ -114,8 +114,7 @@ struct NewPlanView: View {
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.glassProminent)
-                            .controlSize(.large)
+                            .buttonStyle(.pixel)
                             .disabled(isWorking || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                         Button("Enter tasks myself", action: makeManual)
@@ -130,7 +129,7 @@ struct NewPlanView: View {
                     }
                 }
             }
-            .navigationTitle("New plan")
+            .pixelTitle("New plan")
             .onAppear {
                 if input.isEmpty { input = initialInput }
                 freeFrom = start
@@ -184,7 +183,7 @@ struct NewPlanView: View {
     }
 
     private func newPlan(title: String, input: String, insert: Bool = true) -> Plan {
-        let plan = Plan(title: title, mode: mode, input: input, days: days, start: start)
+        let plan = Plan(title: title, mode: mode, input: input, days: days, start: max(start, .now))   // form may sit open past the start
         plan.materials = input.isEmpty ? "" : materials
         if askFreeTime {
             let minutes = { (d: Date) in Calendar.current.component(.hour, from: d) * 60 + Calendar.current.component(.minute, from: d) }

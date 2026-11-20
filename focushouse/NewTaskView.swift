@@ -17,7 +17,7 @@ struct NewTaskView: View {
 
     @State private var name = ""
     @State private var selectedTag = "Work"
-    let tags = ["Work", "Hobbies"]
+    let tags = ["Work", "Hobbies", "Others"]
     @State private var dueDate = Date.now
     @State private var priority: Priority = .medium
 
@@ -27,7 +27,7 @@ struct NewTaskView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            PixelList {
                 TextField("Name", text: $name)
             
                 Picker("Tag", selection: $selectedTag) {
@@ -48,7 +48,7 @@ struct NewTaskView: View {
                     }
                 }
             }
-            .pixelTitle(editing == nil ? "New Task" : "Edit Task")
+            .pixelTitle(editing == nil ? "New to-do" : "Edit to-do")
             .onAppear {
                 guard let editing else { return }
                 name = editing.name

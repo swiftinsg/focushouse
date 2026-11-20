@@ -208,15 +208,7 @@ enum Planner {
         case LanguageModelError.contextSizeExceeded: PlannerError.tooLong
         case LanguageModelError.guardrailViolation, LanguageModelError.refusal: PlannerError.blocked
         case LanguageModelError.unsupportedLanguageOrLocale: PlannerError.language
-        case LanguageModelError.rateLimited: PlannerError.busy
-        case let e as LanguageModelSession.GenerationError:
-            switch e {
-            case .exceededContextWindowSize: PlannerError.tooLong
-            case .guardrailViolation, .refusal: PlannerError.blocked
-            case .unsupportedLanguageOrLocale: PlannerError.language
-            case .rateLimited, .concurrentRequests: PlannerError.busy
-            default: error
-            }
+        case LanguageModelError.rateLimited, LanguageModelError.timeout: PlannerError.busy
         default: error
         }
     }

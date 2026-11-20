@@ -4,6 +4,11 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Plan.createdAt, order: .reverse) private var plans: [Plan]
+    @Query(filter: #Predicate<TodoItem> { !$0.isDone }) private var todos: [TodoItem]
+    @State private var sortOption = TaskSortOption.priority
+    @State private var isAddingTodo = false
+    @State private var editingTodo: TodoItem?
+    @State private var isPlanningTodos = false
     @State private var path: [Plan] = []
     @State private var showNew = false
     @AppStorage("seenCalendarTip") private var seenCalendarTip = false
@@ -11,7 +16,36 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            List {
+            PixelList {
+                if !todos.isEmpty {
+                    Section {
+                        ForEach(sortedTodos) { todo in
+                            TodoRow(todo: todo) { editingTodo = todo }
+                        }
+                        .onDelete { $0.map { sortedTodos[$0] }.forEach(context.delete) }
+                    } header: {
+                        HStack {
+                            Text("To-dos").pixelHeader()
+                            Spacer()
+                            Menu {
+                                Picker("Sort by", selection: $sortOption) {
+                                    ForEach(TaskSortOption.allCases) { Text($0.rawValue).tag($0) }
+                                }
+                            } label: {
+                                Label("Sort", systemImage: "arrow.up.arrow.down").labelStyle(.iconOnly)
+                            }
+                        }
+                    }
+                    Section {
+                        Button { isPlanningTodos = true } label: {
+                            Label("Plan these", systemImage: "sparkles").font(.headline)
+                        }
+                        .buttonStyle(.pixel)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                    }
+                }
+                Section {
                 ForEach(plans) { plan in
                     NavigationLink(value: plan) {
                         HStack(spacing: 14) {
@@ -50,18 +84,24 @@ struct ContentView: View {
                     }
                 }
                 .onDelete { delete($0.map { plans[$0] }) }
+                } header: {
+                    if !todos.isEmpty && !plans.isEmpty { Text("Plans").pixelHeader() }
+                }
             }
             .overlay {
-                if plans.isEmpty {
-                    ContentUnavailableView("No plans yet", systemImage: "checklist",
-                                           description: Text("Tap + to plan your day or a goal."))
+                if plans.isEmpty && todos.isEmpty {
+                    ContentUnavailableView("Nothing here yet", systemImage: "checklist",
+                                           description: Text("Tap + to add a to-do, or plan your day or a goal."))
                 }
             }
             .pixelTitle("Schedule")
             .navigationDestination(for: Plan.self) { PlanView(plan: $0) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("New plan", systemImage: "plus") { showNew = true }
+                    Menu("Add", systemImage: "plus") {
+                        Button("New plan", systemImage: "sparkles") { showNew = true }
+                        Button("Add to-do", systemImage: "checklist") { isAddingTodo = true }
+                    }
                 }
             }
             .alert("Couldn't add to Calendar", isPresented: Binding(get: { calendarError != nil }, set: { if !$0 { calendarError = nil } })) {
@@ -72,6 +112,17 @@ struct ContentView: View {
                 NavigationStack {
                     CalendarTipView()
                         .toolbar { Button("Got it") { seenCalendarTip = true } }
+                }
+            }
+            .sheet(isPresented: $isAddingTodo) { NewTaskView() }
+            .sheet(item: $editingTodo) { NewTaskView(editing: $0) }
+            .sheet(isPresented: $isPlanningTodos) {
+                NewPlanView(initialInput: sortedTodos.dump) { plan in
+                    // Planned to-dos now live in the plan. Manual mode ignores the
+                    // text, so an empty plan keeps them as to-dos.
+                    if !plan.tasks.isEmpty { todos.forEach(context.delete) }
+                    isPlanningTodos = false
+                    path.append(plan)
                 }
             }
             .sheet(isPresented: $showNew) {
@@ -107,6 +158,8 @@ private struct ProgressRing: View {
 }
 
 extension ContentView {
+    private var sortedTodos: [TodoItem] { todos.sorted(by: sortOption) }
+
     private func delete(_ gone: [Plan]) { gone.forEach { $0.deletePlan() } }
 }
 

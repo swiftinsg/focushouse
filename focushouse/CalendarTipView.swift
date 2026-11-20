@@ -2,13 +2,13 @@ import SwiftUI
 
 struct CalendarTipView: View {
     var body: some View {
-        List {
+        PixelList {
             Section {
-                Label("Use your Google Calendar", systemImage: "calendar.badge.plus")
+                Label("Want to use your Google Calendar?", systemImage: "calendar.badge.plus")
                     .font(.headline)
-                Text("focushouse reads your iPhone Calendar, so adding your Google account to iPhone once and your Google events show up here too.")
+                Text("focushouse reads your iPhone Calendar, so adding your Google account to iPhone once and your Google calendar events show up here too.")
             }
-            Section("Steps") {
+            Section(pixel: "Steps") {
                 Text("1. Open the Settings app on your iPhone.")
                 Text("2. Go to Apps → Calendar → Calendar Accounts.")
                 Text("3. Tap Add Account → Google and sign in.")

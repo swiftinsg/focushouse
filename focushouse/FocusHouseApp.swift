@@ -21,9 +21,6 @@ struct FocusHouseApp: App {
             TabView {
                 Tab("Home", image: "tab.home") { HomeView() }
                 Tab("Schedule", image: "tab.schedule") { ContentView() }
-                Tab("Tasks", image: "tab.tasks") {
-                    TaskView(minimumDueDate: .distantPast, sortOrder: [])
-                }
                 Tab("Calendar", image: "tab.calendar") { CalendarView() }
             }
             .tint(.brick)

@@ -24,7 +24,8 @@ struct PlanView: View {
             if showTimeline { PlanTimeline(plan: plan) } else { list }
         }
         .overlay {
-            if plan.tasks.isEmpty {
+            // The list shows its own empty row, so this never covers the goal section.
+            if plan.tasks.isEmpty && showTimeline {
                 ContentUnavailableView {
                     Label("No tasks yet", systemImage: "plus.circle")
                 } actions: {
@@ -51,7 +52,7 @@ struct PlanView: View {
     }
 
     private var list: some View {
-        List {
+        PixelList {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("Plan name", text: $plan.title)
@@ -65,7 +66,7 @@ struct PlanView: View {
                             .tint(.green)
                             .accessibilityLabel("Progress")
                     }
-                    DatePicker("Starts", selection: $plan.start, displayedComponents: [.date, .hourAndMinute])
+                    DatePicker("Starts", selection: $plan.start, in: Date.now..., displayedComponents: [.date, .hourAndMinute])
                         .font(.subheadline)
                         .onChange(of: plan.start) { plan.reflow() }
                 }
@@ -74,6 +75,14 @@ struct PlanView: View {
             }
 
             if plan.mode == .goal { goalSection }
+
+            if plan.tasks.isEmpty {
+                Section {
+                    Button("Add task", systemImage: "plus", action: addTask)
+                } header: {
+                    Text("No tasks yet").pixelHeader()
+                }
+            }
 
             ForEach(groups, id: \.day) { group in
                 Section {
@@ -107,7 +116,7 @@ struct PlanView: View {
                     }
                 } header: {
                     HStack {
-                        Text(dayTitle(group.day))
+                        Text(dayTitle(group.day)).pixelHeader()
                         Spacer()
                         Text(hoursAndMinutes(group.tasks.reduce(0) { $0 + $1.minutes }))
                             .monospacedDigit()
@@ -154,8 +163,20 @@ struct PlanView: View {
             TextField("Goal", text: $plan.input, axis: .vertical)
             DatePicker("Finish by", selection: finishBy, in: plan.start..., displayedComponents: .date)
             if !plan.materials.isEmpty || Planner.isAvailable {
-                TextField("Study material (optional)", text: $plan.materials, axis: .vertical)
-                    .lineLimit(1...6)
+                // A text box, not a growing field: long material scrolls inside it
+                // with a visible scroll bar that flashes on open, so it reads as scrollable.
+                TextEditor(text: $plan.materials)
+                    .frame(height: materialsHeight)
+                    .scrollContentBackground(.hidden)
+                    .scrollIndicators(.visible)
+                    .scrollIndicatorsFlash(onAppear: true)
+                    .overlay(alignment: .topLeading) {
+                        if plan.materials.isEmpty {
+                            Text("Study material (optional)").foregroundStyle(.tertiary)
+                                .padding(.top, 8).padding(.leading, 5)
+                                .allowsHitTesting(false)
+                        }
+                    }
             }
             if Planner.isAvailable {
                 Button("Re-plan from this goal", systemImage: "sparkles") {
@@ -170,11 +191,19 @@ struct PlanView: View {
                 .disabled(isWorking || plan.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         } header: {
-            Text("Goal")
+            Text("Goal").pixelHeader()
         } footer: {
-            Text(Planner.isAvailable ? "Changed the goal? Re-plan to rebuild the tasks you haven't finished."
+            Text(Planner.isAvailable ? "Changed your goal? Re-plan to rebuild the tasks you haven't finished."
                                      : "Changing the finish date reschedules your tasks.")
         }
+    }
+
+    /// Grows with the material up to about 6 lines, then scrolls.
+    // ponytail: line count from newlines + ~38 chars per line; close enough at body size.
+    private var materialsHeight: CGFloat {
+        let lines = plan.materials.split(separator: "\n", omittingEmptySubsequences: false)
+            .reduce(0) { $0 + max(1, ($1.count + 37) / 38) }
+        return CGFloat(min(max(lines, 1), 6)) * 22 + 16
     }
 
     /// The last day of the plan, as a date; setting it changes `days`.
@@ -450,7 +479,7 @@ private struct TaskRow: View {
             }
             .pickerStyle(.menu)
             if !task.done {
-                Section("Need more time?") {
+                Section(pixel: "Need more time?") {
                     ForEach([15, 30, 60], id: \.self) { minutes in
                         Button("+\(minutes) min", systemImage: "clock.arrow.circlepath") { onPushBack(minutes) }
                     }

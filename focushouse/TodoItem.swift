@@ -31,6 +31,8 @@ class TodoItem {
     var isDone: Bool = false
     var priority: Priority = Priority.medium
     var dueDate: Date = Date.now
+    /// When it was ticked: its bricks count on this day.
+    var doneAt: Date?
 
 
     init(name: String, selectedTag: String, dueDate: Date, priority: Priority = .medium) {

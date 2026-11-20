@@ -12,8 +12,8 @@ struct SubtaskEditor: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Task") {
+            PixelList {
+                Section(pixel: "Task") {
                     TextField("Task name", text: $name)
                         .font(.headline)
                 }
@@ -32,7 +32,7 @@ struct SubtaskEditor: View {
 
                     Button("Add subtask", systemImage: "plus.circle.fill") { add() }
                 } header: {
-                    Text("Subtasks")
+                    Text("Subtasks").pixelHeader()
                 } footer: {
                     Text("Your subtasks are saved, so next time the AI suggests similar ones for similar tasks.")
                 }

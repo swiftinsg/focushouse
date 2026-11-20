@@ -84,14 +84,16 @@ struct KeptTask: Codable, Equatable {
     var minutes: Int
     var estimate: Int?
     var start: Date?
-    var day: Date?
+    var day: Date?         // the day its bricks count: when it was ticked
     var earns: Bool
+    var actual: Int? = nil
 }
 
 extension KeptTask {
     @MainActor init(_ t: PlanTask) {
         self.init(title: t.title, category: t.category, priority: t.priority, minutes: t.minutes,
-                  estimate: t.estimate, start: t.start, day: t.start ?? t.plan?.start, earns: t.earnsBricks)
+                  estimate: t.estimate, start: t.start, day: t.doneAt ?? t.start ?? t.plan?.start,
+                  earns: t.earnsBricks, actual: t.actual)
     }
 
     static let key = "keptTasks"
@@ -119,7 +121,7 @@ extension KeptTask {
 
     init(tasks: [PlanTask], todos: [TodoItem], events: [(title: String, start: Date, minutes: Int)],
          ratings: [String: Rating], kept: [KeptTask] = KeptTask.load(UserDefaults.standard.data(forKey: KeptTask.key) ?? Data()),
-         now: Date = .now) {
+         quiet: QuietHours = .load(), now: Date = .now) {
         self.ratings = ratings
         pace = Dictionary(Planner.pace().map { ($0.category, $0.ratio) }, uniquingKeysWith: { a, _ in a })
         var load: [(day: Date, minutes: Int)] = []
@@ -130,13 +132,18 @@ extension KeptTask {
             let r = rating(t.title, priority: t.priority, category: t.category)
             if let start = t.start { load.append((start, House.stress(minutes: t.minutes, r))) }
             if t.earns, let day = t.day {
-                bricks.append((day, House.bricks(minutes: t.estimate ?? t.minutes, r.effort)))
+                let focused = t.start.map { quiet.covers(start: $0, minutes: t.minutes) } ?? false
+                bricks.append((day, House.bricks(minutes: t.estimate ?? t.minutes, actual: t.actual, r.effort, focused: focused)))
             }
         }
+        var todosPaid: [Date: Int] = [:]   // per tick day, up to House.todoDailyCount
         for t in todos {
             let r = rating(t.name, priority: t.priority.level)
             load.append((t.dueDate, House.stress(minutes: House.todoMinutes, r)))
-            if t.isDone { bricks.append((t.dueDate, r.effort == .easy ? 0 : House.todoBricks)) }
+            guard t.isDone, r.effort != .easy else { continue }
+            let day = Calendar.current.startOfDay(for: t.doneAt ?? t.dueDate)
+            todosPaid[day, default: 0] += 1
+            if todosPaid[day]! <= House.todoDailyCount { bricks.append((day, House.todoBricks)) }
         }
         load += events.map { ($0.start, House.stress(minutes: $0.minutes, rating($0.title, priority: 1))) }
         streak = House.streak(load, now: now)

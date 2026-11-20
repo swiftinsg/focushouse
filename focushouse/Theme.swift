@@ -1,7 +1,7 @@
 import SwiftUI
 import CoreText
 
-/// The pixel look: Pixelify Sans for headings and labels, chunky square borders,
+/// The pixel look: Jersey 10 for headings and labels, chunky square borders,
 /// brick meters. Body text stays the system font so it reads well at any size.
 enum Theme {
     /// Registers the bundled pixel font (no Info.plist entry needed).
@@ -13,9 +13,11 @@ enum Theme {
 }
 
 extension Font {
-    /// Pixelify Sans, scaling with Dynamic Type like `style`.
+    /// Jersey 10 (clear digits: 3 and 8 don't blur together), scaling with
+    /// Dynamic Type like `style`. It runs small, so sizes are scaled up to
+    /// match the old Pixelify Sans sizes callers were tuned for.
     static func pixel(_ size: CGFloat, relativeTo style: Font.TextStyle = .body) -> Font {
-        .custom("Pixelify Sans", size: size, relativeTo: style)
+        .custom("Jersey 10", size: size * 1.2, relativeTo: style)
     }
 }
 
@@ -67,6 +69,61 @@ extension View {
     }
 }
 
+/// A List in Home's look: square bordered sections on paper instead of iOS's
+/// rounded ones. Each row's box reaches 3 pt up over the row above, so a section
+/// reads as one box with pixel dividers. Use in place of List or Form.
+struct PixelList<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        List {
+            Group { content }
+                .listRowBackground(
+                    Rectangle().fill(Color.card)
+                        .overlay(Rectangle().strokeBorder(Color.ink, lineWidth: 3))
+                        .padding(.top, -3)
+                )
+                .listRowSeparator(.hidden)
+        }
+        .listStyle(.grouped)
+        .contentMargins(.horizontal, 16, for: .scrollContent)
+        .contentMargins(.top, 20, for: .scrollContent)   // grouped style adds a tall gap above the first section
+        .paperBackground()
+    }
+}
+
+/// Home's main button: a gold square box with a pixel outline that presses down.
+struct PixelButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.vertical, 14).padding(.horizontal)
+            .frame(maxWidth: .infinity)
+            .foregroundStyle(Color.ink.opacity(isEnabled ? 1 : 0.4))
+            .pixelBox(isEnabled ? .gold : .track)
+            .offset(y: configuration.isPressed ? 2 : 0)
+    }
+}
+
+extension ButtonStyle where Self == PixelButtonStyle {
+    static var pixel: PixelButtonStyle { .init() }
+}
+
+extension Text {
+    /// A section header in the pixel font, as on Home.
+    func pixelHeader() -> Text {
+        font(.pixel(17, relativeTo: .headline).weight(.bold)).foregroundStyle(Color.ink)
+    }
+}
+
+extension Section where Parent == Text, Footer == EmptyView, Content: View {
+    /// `Section("Title")` with a pixel-font header.
+    init(pixel title: String, @ViewBuilder content: () -> Content) {
+        self.init(content: content, header: { Text(title).pixelHeader() })
+    }
+}
+
 extension Image {
     /// A pixel-art asset scaled up without blurring.
     func pixelArt() -> some View {
@@ -80,7 +137,10 @@ struct BrickMeter: View {
     let detail: String
     let filled: Int
     let color: Color
+    /// Set for one continuous bar (0–1) instead of 10 bricks.
+    var fraction: Double? = nil
     @State private var shown = 0
+    @State private var grown = 0.0   // the continuous bar's shown fraction
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -90,6 +150,19 @@ struct BrickMeter: View {
                 Spacer()
                 Text(detail).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
             }
+            if let fraction {
+                Rectangle().fill(Color.track).frame(height: 18)
+                    .overlay(alignment: .leading) {
+                        GeometryReader { geo in
+                            Rectangle().fill(color)
+                                .frame(width: geo.size.width * grown)
+                        }
+                    }
+                    .onAppear { grow(fraction) }
+                    .onChange(of: fraction) { grow(fraction) }
+                    .padding(5)
+                    .pixelBox()
+            } else {
             HStack(spacing: 3) {
                 ForEach(0..<10, id: \.self) { i in
                     Rectangle().fill(Color.track).frame(height: 18)
@@ -103,15 +176,20 @@ struct BrickMeter: View {
             }
             .padding(5)
             .pixelBox()
+            }
         }
         .onAppear { shown = filled }
         .onChange(of: filled) { shown = filled }
         .accessibilityElement(children: .combine)
     }
+
+    private func grow(_ to: Double) {
+        withAnimation(reduceMotion ? nil : .spring(duration: 0.6, bounce: 0.3)) { grown = min(max(to, 0), 1) }
+    }
 }
 
 /// A number drawn as bold 5×7 pixel blocks: pixel style, but every digit is
-/// unmistakable (Pixelify Sans's 8 looks like an S at small sizes).
+/// unmistakable (kept from Pixelify Sans, whose 8 looked like an S).
 struct PixelNumber: View {
     let value: Int
     @ScaledMetric private var px: CGFloat
@@ -170,3 +248,4 @@ extension House.State {
         }
     }
 }
+

@@ -20,7 +20,7 @@ enum Shop {
     private struct File: Decodable { var palette: [String: String]?; var items: [Furniture] }
 
     static let catalog: (items: [Furniture], palette: [Character: Color]) = {
-        let files = ["furniture", "furniture_hobbies"].compactMap { name in
+        let files = ["furniture", "furniture_hobbies", "furniture_more"].compactMap { name in
             Bundle.main.url(forResource: name, withExtension: "json")
                 .flatMap { try? Data(contentsOf: $0) }
                 .flatMap { try? JSONDecoder().decode(File.self, from: $0) }

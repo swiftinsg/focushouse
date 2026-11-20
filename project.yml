@@ -27,6 +27,8 @@ targets:
         buildPhase: resources
       - path: Art/furniture_hobbies.json
         buildPhase: resources
+      - path: Art/furniture_more.json
+        buildPhase: resources
     entitlements:
       path: focushouse/focushouse.entitlements
       properties: &ents
@@ -76,7 +78,7 @@ targets:
       - Shared
       - focushouse/Theme.swift
       - focushouse/Assets.xcassets   # house sprites, brick icon
-      - path: focushouse/Fonts/PixelifySans.ttf
+      - path: focushouse/Fonts/Jersey10.ttf
         buildPhase: resources
     info:
       path: focushouseWidgets/Info.plist

@@ -72,6 +72,59 @@ struct HouseTests {
         #expect(House.total(earned) == 107)   // today's 150 capped at 100
     }
 
+    @MainActor @Test func bricksCountOnTheTickDaySoFutureTasksCantDodgeTheCap() {
+        // A month of tasks, scheduled on 30 different days, all ticked today.
+        let kept = (0..<30).map { i in
+            KeptTask(title: "Revise \(i)", category: "revision", priority: 1, minutes: 60, estimate: 60,
+                     start: daysAgo(-i), day: now, earns: true)
+        }
+        let status = HouseStatus(tasks: [], todos: [], events: [], ratings: [:], kept: kept, quiet: QuietHours(), now: now)
+        #expect(status.earned == House.dailyBrickCap)
+    }
+
+    @MainActor @Test func tickingBeforeTheStartEarnsNothing() {
+        let task = PlanTask(title: "Essay", category: "essay", minutes: 60, day: 0, order: 0)
+        task.start = now
+        task.setDone(true, now: now.addingTimeInterval(-3600))
+        #expect(task.tickedEarly && !task.earnsBricks)
+        task.setDone(false)
+        task.setDone(true, now: now.addingTimeInterval(3600))
+        #expect(!task.tickedEarly && task.earnsBricks)
+    }
+
+    @Test func taskBricksCapMinutesUseTheShorterTimeAndRewardFocus() {
+        #expect(House.bricks(minutes: 480, actual: nil, .normal, focused: false) == 12)   // capped at 2 h
+        #expect(House.bricks(minutes: 60, actual: 20, .normal, focused: false) == 2)      // took 20 min
+        #expect(House.bricks(minutes: 60, actual: 90, .normal, focused: false) == 6)      // longer never pays more
+        #expect(House.bricks(minutes: 60, actual: nil, .normal, focused: true) == 9)      // phone down: ×1.5
+    }
+
+    @Test func quietHoursCoverEveryHourTheTaskTouches() {
+        let start = cal.date(bySettingHour: 10, minute: 30, second: 0, of: now)!
+        var q = QuietHours()
+        q.hours = [QuietHours.hour(start)]
+        #expect(q.covers(start: start, minutes: 30))     // 10:30–11:00
+        #expect(!q.covers(start: start, minutes: 45))    // runs into 11:00, not quiet
+        q.hours.insert(QuietHours.hour(start) + 1)
+        #expect(q.covers(start: start, minutes: 45))
+    }
+
+    @Test func halfRateAfterSixtyThenTheCap() {
+        #expect(House.dayTotal(50) == 50)
+        #expect(House.dayTotal(80) == 70)
+        #expect(House.dayTotal(500) == House.dailyBrickCap)
+    }
+
+    @MainActor @Test func onlyTenToDosADayPay() {
+        let todos = (0..<15).map { i in
+            let t = TodoItem(name: "Chore \(i)", selectedTag: "School", dueDate: now, priority: .high)
+            t.isDone = true; t.doneAt = now
+            return t
+        }
+        let status = HouseStatus(tasks: [], todos: todos, events: [], ratings: [:], kept: [], quiet: QuietHours(), now: now)
+        #expect(status.earned == House.todoDailyCount * House.todoBricks)
+    }
+
     @Test func restCountsOnlyThreeHourWakingStretches() {
         var r = Routine()
         r.wake = 7 * 60
@@ -112,6 +165,15 @@ struct HouseTests {
         #expect(RestHours.blocks(wake: 6 * 60, bed: 2 * 60).count == 20)   // bedtime after midnight
     }
 
+    @Test func catalogLoadsEveryFileWithWholeSprites() {
+        #expect(Shop.items.contains { $0.name == "Focus Clock" })     // furniture_more.json
+        #expect(Set(Shop.items.map(\.name)).count == Shop.items.count)
+        for item in Shop.items {
+            #expect(item.grid.count == 24 && item.grid.allSatisfy { $0.count == 24 }, "\(item.name)")
+            if item.level > 1 { #expect(Shop.items.contains { $0.group == item.group && $0.level == item.level - 1 }, "\(item.name)") }
+        }
+    }
+
     @Test func shopNeedsLevelOneAndEnoughBricks() {
         let desk = Furniture(name: "Desk", tag: "Work", description: "", hobby: "desk", level: 1, cost: 40, grid: [])
         let deluxe = Furniture(name: "Deluxe", tag: "Work", description: "", hobby: "desk", level: 2, cost: 120, grid: [])
@@ -122,7 +184,7 @@ struct HouseTests {
         #expect(Shop.state(deluxe, owned: ["Desk"], balance: 120, in: all) == .buy)
         #expect(Shop.state(desk, owned: ["Desk"], balance: 0, in: all) == .owned)
         #expect(Shop.spent(["Desk", "Deluxe"], in: all) == 160)
-        #expect(Shop.items.count == 34)   // both JSON files bundled
+        #expect(Shop.items.count == 50)   // 10 + 24 hobbies + 16 more   // both JSON files bundled
     }
 
     @Test func roomSpotsCapSwapAndReplace() {

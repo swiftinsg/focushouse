@@ -29,10 +29,10 @@ struct CalendarView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            PixelList {
                 MonthGrid(day: $day, counts: counts)
 
-                Section(day.formatted(.dateTime.weekday(.wide).day().month())) {
+                Section(pixel: day.formatted(.dateTime.weekday(.wide).day().month())) {
                     ForEach(tasksOnDay) { task in
                         HStack(spacing: 12) {
                             BouncyCheck(done: task.done, label: task.done ? "Mark not done" : "Mark done") {
@@ -69,7 +69,7 @@ struct CalendarView: View {
                 }
 
                 if !events.isEmpty {
-                    Section("In your Calendar") {
+                    Section(pixel: "In your Calendar") {
                         ForEach(events, id: \.calendarItemIdentifier) { event in
                             eventRow(event)
                                 .swipeActions {

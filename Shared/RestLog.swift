@@ -47,6 +47,34 @@ struct RestLog: Codable, Equatable {
     }
 }
 
+/// Clock hours with (almost) no phone use, recorded by the Screen Time monitor
+/// whether or not they count as rest. A task inside quiet hours gets the focus bonus.
+struct QuietHours: Codable, Equatable {
+    var hours: Set<Int> = []   // hour number: whole hours since the reference date
+
+    static func hour(_ date: Date) -> Int { Int((date.timeIntervalSinceReferenceDate / 3600).rounded(.down)) }
+
+    /// Every clock hour the task touches was quiet.
+    func covers(start: Date, minutes: Int) -> Bool {
+        guard minutes > 0 else { return false }
+        let last = start.addingTimeInterval(TimeInterval(minutes * 60 - 1))
+        return (Self.hour(start)...Self.hour(last)).allSatisfy(hours.contains)
+    }
+
+    static func load() -> QuietHours {
+        RestLog.defaults.data(forKey: "quietHours").flatMap { try? JSONDecoder().decode(Self.self, from: $0) } ?? QuietHours()
+    }
+
+    /// The monitor's hour that just ended was quiet. Keeps two weeks.
+    static func add(endingAt end: Date) {
+        var q = load()
+        let h = hour(end.addingTimeInterval(-1800))   // the callback can run a little late
+        q.hours.insert(h)
+        q.hours = q.hours.filter { $0 > h - 14 * 24 }
+        RestLog.defaults.set(try? JSONEncoder().encode(q), forKey: "quietHours")
+    }
+}
+
 /// Phone-free hours in a row so far, kept by the Screen Time monitor.
 struct RestRun: Codable, Equatable {
     var hours = 0

@@ -44,8 +44,8 @@ struct HomeView: View {
                                 .allowsHitTesting(false)
                             Button { enter() } label: { Color.clear.contentShape(Rectangle()) }
                                 .frame(width: 6 * px, height: 8 * px)
+                                .tour(.door)   // before .position, which fills the house
                                 .position(x: 15 * px, y: 26 * px)
-                                .tour(.door)
                         }
                     }
                     .sensoryFeedback(trigger: doorStep) { _, step in
@@ -78,8 +78,9 @@ struct HomeView: View {
                         .tour(.stress)
                     BrickMeter(title: "Rest today",
                                detail: "\(Self.duration(restToday)) / \(Self.duration(House.restGoal)) away",
-                               filled: min(10, Int(restToday / House.restGoal * 10)),
-                               color: .blue)
+                               filled: 0,
+                               color: .blue,
+                               fraction: restToday / House.restGoal)
                         .tour(.rest)
 
                     if state != .calm && state != .resting { restCard }
@@ -152,7 +153,7 @@ struct HomeView: View {
             Image(systemName: "moon.zzz.fill").font(.title2).foregroundStyle(.yellow)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Rest to repair").font(.pixel(20, relativeTo: .headline).weight(.bold))
-                Text("Put your phone down for \(Self.duration(House.restGoal)) today to rebuild a step.")
+                Text("Put your phone down for \(Self.duration(House.restGoal)) today to rebuild it.")
                     .font(.footnote)
             }
         }
@@ -169,7 +170,7 @@ struct HomeView: View {
             Image(systemName: "lightbulb.fill").font(.title2).foregroundStyle(.yellow)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Your week").font(.pixel(20, relativeTo: .headline).weight(.bold))
-                Text(insight.isEmpty ? "See your stress, rest and what weighed on you most." : insight)
+                Text(insight.isEmpty ? "See your different stresses, rest and what weighed on you most." : insight)
                     .font(.footnote)
             }
             Spacer(minLength: 0)
@@ -190,7 +191,7 @@ struct HomeView: View {
             .accessibilityLabel("Mark \(task.title) done")
             VStack(alignment: .leading, spacing: 2) {
                 Text("Next: \(task.title)").font(.subheadline.weight(.semibold))
-                let earns = House.bricks(minutes: task.estimate ?? task.minutes, status.rating(task.title, priority: task.priority, category: task.category).effort)
+                let earns = House.bricks(minutes: task.estimate ?? task.minutes, actual: nil, status.rating(task.title, priority: task.priority, category: task.category).effort, focused: false)
                 Text("\(task.start!.formatted(date: .omitted, time: .shortened))–\(task.end!.formatted(date: .omitted, time: .shortened))" + (earns > 0 ? " · +\(earns) bricks" : ""))
                     .font(.footnote).foregroundStyle(.secondary)
             }
@@ -434,6 +435,11 @@ struct WeeklySummaryView: View {
                     LabeledContent("Average", value: "\(feeling.formatted(.number.precision(.fractionLength(1))))/5 · \(stats.checkIns) check-ins")
                     if !stats.drained.isEmpty { LabeledContent("Drained you", value: stats.drained.joined(separator: ", ")) }
                     if !stats.energised.isEmpty { LabeledContent("Felt good", value: stats.energised.joined(separator: ", ")) }
+                }
+                // A nudge, not a block: bulk ticking is sometimes honest.
+                if stats.quickTicks >= 5 {
+                    Text("\(stats.quickTicks) ticks came within a minute of each other. Ticking each task as you finish it keeps your pace and bricks accurate.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
                 if let overrun = stats.overrun, abs(overrun) >= 10 {
                     Text("Tasks took \(abs(overrun))% \(overrun > 0 ? "longer" : "less time") than planned. New plans adjust for your pace.")

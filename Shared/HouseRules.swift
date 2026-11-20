@@ -49,7 +49,13 @@ enum House {
     /// Rest in one day (waking hours) that repairs one step.
     static let restGoal: TimeInterval = 3 * 3600
     static let todoBricks = 3
+    /// To-dos that pay in one day, so a list of fake ones doesn't.
+    static let todoDailyCount = 10
     static let dailyBrickCap = 100
+    /// Full rate up to here each day, then half, so grinding stops paying long before the cap.
+    static let fullRateBricks = 60
+    /// Minutes one task can pay for, so typing in an 8-hour task doesn't.
+    static let maxTaskMinutes = 120
 
     /// Stressful days in a row, ending today, or yesterday when today isn't
     /// stressful (yet), so the streak doesn't reset every morning.
@@ -95,10 +101,24 @@ enum House {
         }
     }
 
-    /// Total bricks, at most `dailyBrickCap` per day so making up tasks doesn't pay.
+    /// Bricks for a finished plan task: on the estimate or the time it really
+    /// took, whichever is less, up to `maxTaskMinutes`; ×1.5 when the phone stayed
+    /// down the whole time (Screen Time's quiet hours).
+    static func bricks(minutes: Int, actual: Int?, _ effort: Effort, focused: Bool) -> Int {
+        let b = bricks(minutes: min(maxTaskMinutes, minutes, actual ?? minutes), effort)
+        return focused ? b * 3 / 2 : b
+    }
+
+    /// One day's bricks: full rate up to `fullRateBricks`, half after, at most `dailyBrickCap`.
+    static func dayTotal(_ bricks: Int) -> Int {
+        min(dailyBrickCap, bricks <= fullRateBricks ? bricks : fullRateBricks + (bricks - fullRateBricks) / 2)
+    }
+
+    /// Total bricks, day by day (the day each thing was ticked) through `dayTotal`,
+    /// so making up tasks doesn't pay.
     static func total(_ earned: [(day: Date, bricks: Int)], calendar: Calendar = .current) -> Int {
         Dictionary(grouping: earned) { calendar.startOfDay(for: $0.day) }
-            .values.reduce(0) { $0 + min(dailyBrickCap, $1.reduce(0) { $0 + $1.bricks }) }
+            .values.reduce(0) { $0 + dayTotal($1.reduce(0) { $0 + $1.bricks }) }
     }
 }
 

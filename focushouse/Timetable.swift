@@ -149,7 +149,7 @@ struct TimetableView: View {
     @State private var thisWeekIsA = true
 
     var body: some View {
-        Form {
+        PixelList {
             Section {
                 PhotosPicker(selection: $photo, matching: .images) {
                     Label("Choose a photo", systemImage: "photo")
@@ -178,7 +178,7 @@ struct TimetableView: View {
                 Text("For timetables that alternate every other week, like odd and even weeks.")
             }
 
-            Section("Lessons") {
+            Section(pixel: "Lessons") {
                 ForEach($lessons) { $lesson in
                     VStack(alignment: .leading) {
                         TextField("Subject", text: $lesson.subject).font(.headline)

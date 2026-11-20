@@ -168,14 +168,23 @@ extension Date {
     var feeling: Int?      // 1 drained … 5 energised
     var note = ""          // optional, deleted after 30 days
     var reflectedAt: Date?
+    /// When it was ticked: bricks count on this day, and only once the task has started.
+    var doneAt: Date?
     var plan: Plan?
 
     enum CheckInState: Int { case none, waiting, answered, skipped }
 
-    /// Earns bricks when done and answered (or done before check-ins existed); never free time.
+    /// Earns bricks when done and answered (or done before check-ins existed); never
+    /// free time, and never when ticked before it started.
     var earnsBricks: Bool {
-        done && category != Plan.freeTime
+        done && category != Plan.freeTime && !tickedEarly
             && (checkIn == CheckInState.none.rawValue || checkIn == CheckInState.answered.rawValue)
+    }
+
+    /// Ticked before its start time: done, but no bricks.
+    var tickedEarly: Bool {
+        guard let doneAt, let start else { return false }
+        return doneAt < start
     }
 
     init(title: String, category: String, minutes: Int, day: Int, order: Int) {
@@ -194,6 +203,7 @@ extension Date {
     /// = unknown, not recorded.
     func setDone(_ value: Bool, now: Date = .now) {
         done = value
+        doneAt = value ? now : nil
         guard value, actual == nil, let estimate, let start, let end = self.end, start <= now else { return }
         let real = now < end ? max(5, Int(now.timeIntervalSince(start) / 60)) : minutes
         actual = real

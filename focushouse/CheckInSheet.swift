@@ -19,22 +19,26 @@ struct CheckInSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            PixelList {
                 Section {
                     Text("How did it go?")
                         .font(.pixel(26, relativeTo: .title))
                     Text(task.title).font(.headline)
+                    if task.tickedEarly {
+                        Text("Ticked before it started, so it won't earn bricks. Untick it and tick again once you've done it in its slot.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
 
                 Section {
                     Stepper(value: $minutes, in: 5...480, step: 5) {
-                        LabeledContent("How much time it took", value: hoursAndMinutes(minutes))
+                        LabeledContent("How much time it take?", value: hoursAndMinutes(minutes))
                     }
                 } footer: {
                     Text("Planned \(hoursAndMinutes(task.estimate ?? task.minutes))")
                 }
 
-                Section("How did the tasks feel?") {
+                Section(pixel: "How did the tasks feel?") {
                     HStack(spacing: 8) {
                         ForEach(Self.feelings.indices, id: \.self) { i in
                             let (emoji, caption) = Self.feelings[i]
@@ -57,12 +61,12 @@ struct CheckInSheet: View {
                 }
 
                 Section {
-                    TextField("Did anything helped you to do or got in the way?", text: $note, axis: .vertical)
+                    TextField("What are some of the challenges that you faced, or did anything helped you during your tasks?", text: $note, axis: .vertical)
                         .lineLimit(2...4)
                 } header: {
-                    Text("Note (optional)")
+                    Text("Note (optional)").pixelHeader()
                 } footer: {
-                    Text("Stays on your phone. Notes are deleted after 30 days.")
+                    Text("It stays on your phone. Your notes are deleted after 30 days.")
                 }
             }
             // Save and Skip stay at the bottom of the screen, under the form.
@@ -75,8 +79,7 @@ struct CheckInSheet: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.glassProminent)
-                    .controlSize(.large)
+                    .buttonStyle(.pixel)
                     .disabled(feeling == nil)
 
                     Button("Skip (no bricks)") { CheckIn.shared.skip(task) }

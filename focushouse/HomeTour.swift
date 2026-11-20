@@ -16,21 +16,21 @@ enum TourStep: Int, CaseIterable {
         case .next: "Your next task"
         case .settings: "Settings"
         case .bricks: "Bricks"
-        case .tabs: "Schedule · Tasks · Calendar"
+        case .tabs: "Schedule · Calendar"
         }
     }
 
     var text: String {
         switch self {
-        case .house: "It shows the state your mental health. Multiple stressful days in a row wear the house down, and rest builds it back up. Look after yourself by having a good work life balance and it stays standing."
-        case .door: "Tap the door to step inside your house. That's where the furniture you buy with bricks goes."
-        case .status: "Calm, Stressed, Overloaded or Crumbling, the house's state is based on how many hard days you've had in a row. Resting means you rested enough today to repair a step."
-        case .stress: "It fills the bar for each stressful day in a row. Easy tasks don't count, and lessons and exams count half."
-        case .rest: "Time with your phone down while you're awake. Reach \(HomeView.duration(House.restGoal)) in a day to repair your house one step."
-        case .next: "Tick the box when you finish to earn bricks, then say how it went so future plans fit your pace."
+        case .house: "It shows the state your mental health. Multiple stressful days in a row wear the house down, and rest builds it back up. Look after yourself by having a good work life balance and it stays standing, proud and tall."
+        case .door: "The glowing door is a button. Tap it any time to step inside your house, where the furniture you buy with bricks can make you decorate your house."
+        case .status: "The house's state is based on how many hard days you've had in a row. Resting means you rested enough today to repair your house."
+        case .stress: "It fills the bar for each stressful day in a row."
+        case .rest: "Time with your phone down consecutively for 3 hours counts as rest. Reach \(HomeView.duration(House.restGoal)) in a day to repair your house!"
+        case .next: "Tick the box when you finish your tasks to earn bricks, then say how your experience went so future plans fit the different tasks that you do."
         case .settings: "Tap the gear for your routine, school hours, daily work limit and how rest is counted."
         case .bricks: "Earned by finishing tasks. Spend them on furniture inside your house. Bricks decorate, but only rest repairs."
-        case .tabs: "Schedule: tap + to turn a goal or to-do list into a timed plan.\nTasks: quick to-dos with due dates.\nCalendar: your month at a glance."
+        case .tabs: "Schedule: your to-dos and plans. Tap + to add a to-do, or turn a goal or to-do list into a timed plan.\nCalendar: your month at a glance."
         }
     }
 
@@ -38,7 +38,7 @@ enum TourStep: Int, CaseIterable {
     var arrow: (symbol: String, edge: Alignment)? {
         switch self {
         case .settings: ("arrow.up", .topLeading)
-        case .bricks: ("arrow.up.right", .topTrailing)
+        case .bricks: ("arrow.up", .topTrailing)
         case .tabs: ("arrow.down", .bottom)
         default: nil
         }
@@ -55,7 +55,8 @@ struct TourAnchors: PreferenceKey {
 extension View {
     /// Marks this view as the spotlight for `step`.
     func tour(_ step: TourStep) -> some View {
-        anchorPreference(key: TourAnchors.self, value: .bounds) { [step: $0] }
+        // Merges, so the door inside the house keeps its own spotlight.
+        transformAnchorPreference(key: TourAnchors.self, value: .bounds) { $0[step] = $1 }
     }
 
     /// Runs the Home tour over this view until it's finished or skipped.
@@ -82,7 +83,7 @@ private struct TourOverlay: View {
 
     var body: some View {
         let step = steps[min(index, steps.count - 1)]
-        let hole = rects[step]?.insetBy(dx: -6, dy: -6)
+        let hole = rects[step]?.insetBy(dx: step == .door ? -10 : -6, dy: step == .door ? -10 : -6)   // the door is small: more room
         let last = index >= steps.count - 1
 
         ZStack {
@@ -98,6 +99,18 @@ private struct TourOverlay: View {
                     .frame(width: hole.width, height: hole.height)
                     .position(x: hole.midX, y: hole.midY)
                     .allowsHitTesting(false)
+                if step == .door {   // a small target: glow around it and point at it
+                    Rectangle().strokeBorder(Color.gold, lineWidth: 6)
+                        .blur(radius: 6)
+                        .frame(width: hole.width + 8, height: hole.height + 8)
+                        .position(x: hole.midX, y: hole.midY)
+                        .allowsHitTesting(false)
+                    Image(systemName: "arrow.down").font(.largeTitle.weight(.heavy)).foregroundStyle(Color.gold)
+                        .symbolEffect(.bounce, options: .repeating, isActive: !reduceMotion)
+                        .position(x: hole.midX, y: hole.minY - 28)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
             }
 
             VStack(alignment: .leading, spacing: 8) {

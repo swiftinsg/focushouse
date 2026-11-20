@@ -268,6 +268,7 @@ struct WeekStats: Equatable {
         var feeling: Int?        // check-in, 1 drained … 5 energised
         var estimate: Int?
         var actual: Int?
+        var doneAt: Date? = nil
     }
 
     struct Day: Equatable {
@@ -286,6 +287,7 @@ struct WeekStats: Equatable {
     var feeling: Double?
     var checkIns = 0
     var overrun: Int?                              // % longer (+) or shorter (−) than planned
+    var quickTicks = 0                             // ticks within a minute of the one before
 
     static func == (a: WeekStats, b: WeekStats) -> Bool { a.facts == b.facts }
 
@@ -315,6 +317,8 @@ struct WeekStats: Equatable {
         if !felt.isEmpty { feeling = Double(felt.compactMap(\.feeling).reduce(0, +)) / Double(felt.count) }
         drained = Array(Set(felt.filter { $0.feeling! <= 2 }.map(\.title))).sorted()
         energised = Array(Set(felt.filter { $0.feeling! >= 4 }.map(\.title))).sorted()
+        let ticks = week.compactMap(\.doneAt).sorted()
+        quickTicks = zip(ticks, ticks.dropFirst()).filter { $1.timeIntervalSince($0) < 60 }.count
         let timed = week.filter { $0.estimate != nil && $0.actual != nil }
         if timed.count >= Reflections.minAnswers {
             let est = timed.compactMap(\.estimate).reduce(0, +), act = timed.compactMap(\.actual).reduce(0, +)
@@ -399,11 +403,12 @@ extension HouseStatus {
         let planned: [WeekStats.Item] = tasks.filter { $0.start != nil && $0.category != Plan.freeTime }.map { t in
             WeekStats.Item(title: t.parent.isEmpty ? t.title : t.parent, day: t.start!, minutes: t.minutes,
                            stress: House.stress(minutes: t.minutes, rating(t.title, priority: t.priority, category: t.category)),
-                           done: t.done, feeling: t.feeling, estimate: t.estimate, actual: t.actual)
+                           done: t.done, feeling: t.feeling, estimate: t.estimate, actual: t.actual, doneAt: t.doneAt)
         }
         let listed: [WeekStats.Item] = todos.map { t in
             WeekStats.Item(title: t.name, day: t.dueDate, minutes: House.todoMinutes,
-                           stress: House.stress(minutes: House.todoMinutes, rating(t.name, priority: t.priority.level)), done: t.isDone)
+                           stress: House.stress(minutes: House.todoMinutes, rating(t.name, priority: t.priority.level)), done: t.isDone,
+                           doneAt: t.doneAt)
         }
         let attended: [WeekStats.Item] = events.map { e in
             WeekStats.Item(title: e.title, day: e.start, minutes: e.minutes,
