@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import EventKit
+import AppIntents
 
 @main
 struct FocusHouseApp: App {
@@ -11,6 +12,8 @@ struct FocusHouseApp: App {
         do { container = try ModelContainer(for: Plan.self, TodoItem.self) }
         catch { fatalError("Couldn't open saved plans: \(error)") }
         Reminders.shared.setUp(container: container)
+        let shared = container
+        AppDependencyManager.shared.add(dependency: shared)   // Siri reads tasks through this
         CheckIn.shared.restore(container.mainContext)
         Theme.registerFonts()
         Hint.setUp()
@@ -35,7 +38,10 @@ struct FocusHouseApp: App {
             .modelContainer(container)
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { WidgetSync.apply(container.mainContext); pullCalendar() }
-                if phase == .background { WidgetSync.write(container.mainContext) }
+                if phase == .background {
+                    WidgetSync.write(container.mainContext)
+                    Task { await SiriContext.index(container.mainContext) }
+                }
                 // Rest for the house: Screen Time when it's on, else time away from the app.
                 if ScreenTime.isOn {
                     if phase == .active { ScreenTime.schedule() }   // picks up routine changes
