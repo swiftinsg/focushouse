@@ -84,6 +84,38 @@ enum PlanMode: String, CaseIterable {
         task.minutes += minutes
         reflow()
     }
+
+    /// Tasks longer than this get a "take breaks" nudge and the Add breaks option.
+    static let longTask = 90
+
+    /// Splits a long task into hour-long parts with a `rest`-minute break between
+    /// each ("Essay (1/3)", Break, "Essay (2/3)", …). The task itself becomes part 1,
+    /// keeping its pin, reminders and Calendar event; breaks are free time.
+    @MainActor func addBreaks(to task: PlanTask, rest: Int, every work: Int = 60) {
+        guard !task.done, task.minutes > work else { return }
+        let total = task.minutes, title = task.title
+        let count = (total + work - 1) / work
+        var list = ordered
+        var at = (list.firstIndex { $0 === task } ?? list.count - 1) + 1
+        task.title = "\(title) (1/\(count))"
+        task.minutes = work
+        task.estimate = task.estimate.map { $0 * work / total }
+        for n in 2...count {
+            let b = PlanTask(title: "Break", category: Plan.freeTime, minutes: rest, day: task.day, order: 0)
+            b.priority = 2
+            b.parent = task.parent
+            let minutes = n == count ? total - work * (count - 1) : work
+            let part = PlanTask(title: "\(title) (\(n)/\(count))", category: task.category, minutes: minutes, day: task.day, order: 0)
+            part.priority = task.priority
+            part.parent = task.parent
+            part.estimate = task.estimate.map { _ in minutes }
+            tasks += [b, part]
+            list.insert(contentsOf: [b, part], at: at)
+            at += 2
+        }
+        for (i, t) in list.enumerated() { t.order = i }
+        reflow()
+    }
 }
 
 extension Plan {
@@ -178,12 +210,13 @@ extension Date {
     /// free time, and never when ticked before it started.
     var earnsBricks: Bool {
         done && category != Plan.freeTime && !tickedEarly
-            && (checkIn == CheckInState.none.rawValue || checkIn == CheckInState.answered.rawValue)
+            && (Tester.on   // TESTER: pays without answering "How did it go?"
+                || checkIn == CheckInState.none.rawValue || checkIn == CheckInState.answered.rawValue)
     }
 
     /// Ticked before its start time: done, but no bricks.
     var tickedEarly: Bool {
-        guard let doneAt, let start else { return false }
+        guard !Tester.on, let doneAt, let start else { return false }   // TESTER: early ticks pay
         return doneAt < start
     }
 

@@ -17,6 +17,7 @@ import WidgetKit
 
         var snap = WidgetSnapshot()
         snap.streak = status.streak
+        snap.earned = status.earned
         snap.bricks = max(0, status.earned - Shop.spent(Shop.owned(d.string(forKey: "owned") ?? "")))
         snap.today = tasks.filter { $0.start.map { cal.isDate($0, inSameDayAs: now) } ?? false }
             .sorted { $0.start! < $1.start! }

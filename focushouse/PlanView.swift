@@ -97,7 +97,8 @@ struct PlanView: View {
                         }
                         ForEach(block.tasks) { task in
                             TaskRow(task: task, onChange: { plan.reflow() }, onPushBack: { plan.pushBack(task, by: $0) },
-                                    onEdit: { editSubtasks(of: task) }, onDelete: { plan.delete([task]) })
+                                    onEdit: { editSubtasks(of: task) }, onDelete: { plan.delete([task]) },
+                                    onAddBreaks: { plan.addBreaks(to: task, rest: $0) })
                                 .padding(.leading, block.parent.isEmpty ? 0 : 28)
                         }
                         .onDelete { plan.delete($0.map { block.tasks[$0] }) }
@@ -416,8 +417,14 @@ private struct TaskRow: View {
     var onPushBack: (Int) -> Void
     var onEdit: () -> Void
     var onDelete: () -> Void
+    var onAddBreaks: (Int) -> Void
 
-    private static let durations = [5, 10, 15, 20, 25, 30, 40, 45, 50, 60, 75, 90, 105, 120, 150, 180, 210, 240]
+    private var isLong: Bool { !task.done && task.minutes > Plan.longTask && task.category != Plan.freeTime }
+
+    /// Setting a new time fixes the task there (same as pinning).
+    private var time: Binding<Date> {
+        Binding(get: { task.start ?? .now }, set: { task.pinned = $0; onChange() })
+    }
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -447,14 +454,35 @@ private struct TaskRow: View {
                     }
                 }
                 if let start = task.start, let end = task.end {
-                    Text((start..<end).formatted(.interval.hour().minute()))
-                        .font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
+                    if task.done {
+                        Text((start..<end).formatted(.interval.hour().minute()))
+                            .font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
+                    } else {
+                        HStack(spacing: 4) {
+                            DatePicker("Start time", selection: time, displayedComponents: [.date, .hourAndMinute])
+                                .labelsHidden()
+                            Text("– \(end.formatted(date: .omitted, time: .shortened))")
+                                .foregroundStyle(.secondary).monospacedDigit()
+                        }
+                        .font(.subheadline)
+                    }
+                }
+                if isLong {
+                    Menu {
+                        ForEach([5, 10, 15], id: \.self) { rest in
+                            Button("\(rest) min break every hour") { onAddBreaks(rest) }
+                        }
+                    } label: {
+                        Label("Long tasks still need breaks. Add some?", systemImage: "cup.and.saucer")
+                            .font(.footnote).foregroundStyle(.orange)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
 
             Menu {
                 Picker("Duration", selection: $task.minutes) {
-                    ForEach(Set(Self.durations + [task.minutes]).sorted(), id: \.self) {
+                    ForEach(Set(taskDurations + [task.minutes]).sorted(), id: \.self) {
                         Text(hoursAndMinutes($0)).tag($0)
                     }
                 }
@@ -485,6 +513,13 @@ private struct TaskRow: View {
                     }
                 }
             }
+            if isLong {
+                Menu("Add breaks", systemImage: "cup.and.saucer") {
+                    ForEach([5, 10, 15], id: \.self) { rest in
+                        Button("\(rest) min break every hour") { onAddBreaks(rest) }
+                    }
+                }
+            }
             if task.pinned == nil, !task.done, let start = task.start {
                 Button("Pin to \(start.formatted(date: .omitted, time: .shortened))", systemImage: "pin") {
                     task.pinned = start
@@ -511,6 +546,9 @@ private struct TaskRow: View {
         }
     }
 }
+
+/// Duration choices for a task, up to 8 h (the check-in's cap too).
+let taskDurations = [5, 10, 15, 20, 25, 30, 40, 45, 50, 60, 75, 90, 105, 120, 150, 180, 210, 240, 300, 360, 420, 480]
 
 /// "45 min", "1 h", "1 h 30 min".
 func hoursAndMinutes(_ minutes: Int) -> String {

@@ -149,7 +149,7 @@ private struct HouseTile: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(House.State.resting.sky)
         } else {
-            Image("house." + entry.state.rawValue).pixelArt()
+            Image("house.\(entry.state.rawValue).\(House.level(earned: entry.snap.earned))").pixelArt()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(entry.state.sky)
         }

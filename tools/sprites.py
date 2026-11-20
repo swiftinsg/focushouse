@@ -3,9 +3,9 @@
 
     python3 tools/sprites.py
 
-Reads Art/houses.json (house sprites designed with DeepSeek) and the tab icons
+Reads Art/houses.json (house sprites from tools/house_art.py) and the tab icons
 below, and writes focushouse/Assets.xcassets. Pixels are kept at their real
-size (32x32 houses); the app scales them up with interpolation off, so they stay
+size (96x64 houses); the app scales them up with interpolation off, so they stay
 crisp. Standard library only.
 """
 import json, os, struct, zlib
@@ -62,11 +62,14 @@ def main():
     with open(os.path.join(ASSETS, "Contents.json"), "w") as f:
         json.dump({"info": {"author": "xcode", "version": 1}}, f, indent=2)
 
+    # house.<state>.<level> (tools/house_art.py), plus house.<state> = level 4 for code without a level.
     houses = json.load(open(os.path.join(ROOT, "Art", "houses.json")))
     for sprite in houses["sprites"]:
         grid = sprite["grid"]
-        assert len(grid) == 32 and all(len(r) == 32 for r in grid), sprite["name"]
-        imageset("house." + sprite["name"].lower(), grid, houses["palette"])
+        assert len(grid) == 64 and all(len(r) == 96 for r in grid), sprite["name"]
+        imageset("house." + sprite["name"], grid, houses["palette"])
+        if sprite["name"].endswith(".4"):
+            imageset("house." + sprite["name"][:-2], grid, houses["palette"])
 
     for name, grid in ICONS.items():
         template = name.startswith("tab.")

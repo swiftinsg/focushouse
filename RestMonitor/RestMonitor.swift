@@ -4,7 +4,7 @@ import WidgetKit
 
 /// Screen Time runs this in the background at the start and end of each waking
 /// hour focushouse watches. Hours with no phone use build a run; only runs of
-/// `RestLog.minBreak` (3h) or more count as rest.
+/// `RestLog.minBreak` (set in Settings, rounded up to whole hours) or more count as rest.
 // ponytail: Screen Time callbacks can be late or skipped; a missed hour just
 // isn't counted, which errs on the side of less rest.
 final class RestMonitor: DeviceActivityMonitor {
@@ -24,7 +24,7 @@ final class RestMonitor: DeviceActivityMonitor {
         if !used { QuietHours.add(endingAt: now) }   // focus bonus, even during a task
         // Phone used, or phone down during a scheduled task or lesson: not rest, run over.
         guard !used,
-              !WidgetSnapshot.load().blocksRest(from: now.addingTimeInterval(-3600), to: now) else {
+              Tester.on || !WidgetSnapshot.load().blocksRest(from: now.addingTimeInterval(-3600), to: now) else {   // TESTER: rest during tasks counts
             RestRun().save()
             return
         }

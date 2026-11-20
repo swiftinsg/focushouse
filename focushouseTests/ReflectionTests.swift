@@ -78,6 +78,21 @@ import Testing
         #expect(starts == [at(10), at(10, 40)])
     }
 
+    @Test func longTaskSplitsWithBreaks() throws {
+        let container = try ModelContainer(for: Plan.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let plan = Plan(title: "t", mode: .today, input: "", days: 1, start: at(9))
+        container.mainContext.insert(plan)
+        plan.freeFrom = 9 * 60; plan.freeUntil = 23 * 60
+        let essay = PlanTask(title: "Essay", category: "study", minutes: 150, day: 1, order: 0)
+        plan.tasks = [essay, PlanTask(title: "Maths", category: "study", minutes: 30, day: 1, order: 1)]
+        plan.reflow()
+        plan.addBreaks(to: essay, rest: 10)
+        #expect(plan.ordered.map(\.title) == ["Essay (1/3)", "Break", "Essay (2/3)", "Break", "Essay (3/3)", "Maths"])
+        #expect(plan.ordered.map(\.minutes) == [60, 10, 60, 10, 30, 30])
+        #expect(plan.ordered.last?.start == at(11, 50))   // 150 min work + 20 min breaks after 9:00
+        #expect(plan.ordered[1].category == Plan.freeTime)
+    }
+
     @Test func freeTimeAddedOnceWhenOverLimit() throws {
         let container = try ModelContainer(for: Plan.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let plan = Plan(title: "t", mode: .today, input: "", days: 1, start: at(9))

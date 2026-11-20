@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import focushouse
 
-struct HouseTests {
+@Suite(.serialized) struct HouseTests {   // rest tests share the App Group "restMinBreak"
     let cal = Calendar.current
     let now = Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: 13, hour: 18))!
     func daysAgo(_ n: Int, hour: Int = 16) -> Date {
@@ -157,6 +157,30 @@ struct HouseTests {
         #expect(log.seconds(on: now) == 4 * 3600)     // and each hour after
         log.restedHour(endingAt: at(18), run: &run)   // gap: starts a new run
         #expect(run.hours == 1 && log.seconds(on: now) == 4 * 3600)
+    }
+
+    @Test func restBreakSettingNeverUnderFifteenMinutes() {
+        defer { RestLog.defaults.removeObject(forKey: "restMinBreak") }
+        RestLog.defaults.set(5, forKey: "restMinBreak")
+        #expect(RestLog.minBreak == 15 * 60)
+        RestLog.defaults.set(30, forKey: "restMinBreak")
+        var log = RestLog()
+        var r = Routine(); r.wake = 7 * 60; r.bed = 22 * 60
+        log.add(from: daysAgo(0, hour: 13), to: daysAgo(0, hour: 13).addingTimeInterval(20 * 60), routine: r)
+        #expect(log.seconds(on: now) == 0)            // 20 min < 30 min
+        log.add(from: daysAgo(0, hour: 14), to: daysAgo(0, hour: 14).addingTimeInterval(40 * 60), routine: r)
+        #expect(log.seconds(on: now) == 40 * 60)
+        var run = RestRun()
+        log.restedHour(endingAt: daysAgo(0, hour: 18), run: &run)
+        #expect(log.seconds(on: now) == 40 * 60 + 3600)   // Screen Time: one quiet hour is enough
+    }
+
+    @Test func houseFixesUpWithBricksEarned() {
+        #expect(House.level(earned: 0) == 0 && House.toNextLevel(earned: 0) == 40)
+        #expect(House.level(earned: 39) == 0 && House.level(earned: 40) == 1)
+        #expect(House.level(earned: 599) == 4 && House.toNextLevel(earned: 599) == 1)
+        #expect(House.level(earned: 5000) == 5 && House.toNextLevel(earned: 5000) == nil)
+        #expect(House.levelNames.count == House.levelBricks.count)
     }
 
     @Test func restHoursAreHourlyBlocksCappedAtTwenty() {

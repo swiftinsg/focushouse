@@ -26,10 +26,10 @@ enum TourStep: Int, CaseIterable {
         case .door: "The glowing door is a button. Tap it any time to step inside your house, where the furniture you buy with bricks can make you decorate your house."
         case .status: "The house's state is based on how many hard days you've had in a row. Resting means you rested enough today to repair your house."
         case .stress: "It fills the bar for each stressful day in a row."
-        case .rest: "Time with your phone down consecutively for 3 hours counts as rest. Reach \(HomeView.duration(House.restGoal)) in a day to repair your house!"
+        case .rest: "Time with your phone down for \(HomeView.duration(RestLog.minBreak)) in a row counts as rest. Reach \(HomeView.duration(House.restGoal)) in a day to repair your house!"
         case .next: "Tick the box when you finish your tasks to earn bricks, then say how your experience went so future plans fit the different tasks that you do."
         case .settings: "Tap the gear for your routine, school hours, daily work limit and how rest is counted."
-        case .bricks: "Earned by finishing tasks. Spend them on furniture inside your house. Bricks decorate, but only rest repairs."
+        case .bricks: "Earned by finishing tasks. Spend them on furniture inside your house. Bricks fix up your run-down house and buy furniture, but only rest heals the damage from hard days."
         case .tabs: "Schedule: your to-dos and plans. Tap + to add a to-do, or turn a goal or to-do list into a timed plan.\nCalendar: your month at a glance."
         }
     }

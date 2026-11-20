@@ -32,7 +32,8 @@ struct Rating: Codable, Equatable {
 /// The house on Home. Several stressful days in a row knock it down a step at a
 /// time (calm → stressed → overloaded → crumbling); real rest, time away from the
 /// phone, repairs one step per rested day. Bricks (points) come from finished
-/// tasks and are kept separate: they buy furniture, they never repair the house.
+/// tasks: earned all-time they fix the run-down house up (`level`), and they buy
+/// furniture; they never heal stress damage.
 /// Stress and bricks are plain deterministic code; only the effort rating uses AI.
 enum House {
     enum State: String, CaseIterable {
@@ -105,13 +106,15 @@ enum House {
     /// took, whichever is less, up to `maxTaskMinutes`; ×1.5 when the phone stayed
     /// down the whole time (Screen Time's quiet hours).
     static func bricks(minutes: Int, actual: Int?, _ effort: Effort, focused: Bool) -> Int {
-        let b = bricks(minutes: min(maxTaskMinutes, minutes, actual ?? minutes), effort)
+        let cap = Tester.on ? Int.max : maxTaskMinutes   // TESTER: no 2 h cap per task
+        let b = bricks(minutes: min(cap, minutes, actual ?? minutes), effort)
         return focused ? b * 3 / 2 : b
     }
 
     /// One day's bricks: full rate up to `fullRateBricks`, half after, at most `dailyBrickCap`.
     static func dayTotal(_ bricks: Int) -> Int {
-        min(dailyBrickCap, bricks <= fullRateBricks ? bricks : fullRateBricks + (bricks - fullRateBricks) / 2)
+        if Tester.on { return bricks }   // TESTER: no half rate or daily cap
+        return min(dailyBrickCap, bricks <= fullRateBricks ? bricks : fullRateBricks + (bricks - fullRateBricks) / 2)
     }
 
     /// Total bricks, day by day (the day each thing was ticked) through `dayTotal`,
@@ -123,6 +126,21 @@ enum House {
 }
 
 extension House {
+    /// The house's condition (sprite level 0-5) from bricks earned all-time, so
+    /// spending them never undoes it: run-down at first, fixed up step by step,
+    /// level 4 is the house as designed, 5 adds flowers. Separate from stress damage.
+    // ponytail: thresholds are first guesses (strict rules pay at most 100 a day).
+    static let levelBricks = [0, 40, 120, 240, 400, 600]
+    static let levelNames = ["Run-down", "Patched up", "Mended", "Cleaned up", "Like new", "Dream home"]
+
+    static func level(earned: Int) -> Int { levelBricks.lastIndex { earned >= $0 } ?? 0 }
+
+    /// Bricks still needed for the next level, or nil at the top.
+    static func toNextLevel(earned: Int) -> Int? {
+        let next = level(earned: earned) + 1
+        return next < levelBricks.count ? levelBricks[next] - earned : nil
+    }
+
     /// Today's house from the stress streak and the rest log (Home and the widgets).
     static func state(streak: Int, log: RestLog, now: Date, calendar: Calendar = .current) -> State {
         let restedDays = (0...streak).filter {

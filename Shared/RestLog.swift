@@ -6,7 +6,12 @@ struct RestLog: Codable, Equatable {
     static let group = "group.sg.swiftin.2am"
     static var defaults: UserDefaults { UserDefaults(suiteName: group) ?? .standard }
     /// Rest only counts in unbroken phone-free stretches this long or longer.
-    static let minBreak: TimeInterval = 3 * 3600
+    /// Set in Settings (minutes, App Group key "restMinBreak"); never under 15 min.
+    static let floorMinutes = 15, defaultMinutes = 180
+    static var minBreak: TimeInterval {
+        let m = defaults.integer(forKey: "restMinBreak")
+        return TimeInterval(max(floorMinutes, m == 0 ? defaultMinutes : m) * 60)
+    }
 
     var seconds: [String: TimeInterval] = [:]
 
@@ -95,9 +100,10 @@ extension RestLog {
         let follows = run.lastEnd.map { end.timeIntervalSince($0) < 75 * 60 } ?? false
         run.hours = follows ? run.hours + 1 : 1
         run.lastEnd = end
-        let need = Int(Self.minBreak / 3600)
+        // Screen Time watches whole hours, so a shorter break still needs one quiet hour.
+        let need = max(1, Int((Self.minBreak / 3600).rounded(.up)))
         let day = end.addingTimeInterval(-60)
-        if run.hours == need { add(Self.minBreak, on: day, calendar: calendar) }
+        if run.hours == need { add(TimeInterval(need * 3600), on: day, calendar: calendar) }
         else if run.hours > need { add(3600, on: day, calendar: calendar) }
     }
 }

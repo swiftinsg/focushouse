@@ -25,27 +25,29 @@ struct HomeView: View {
         let streak = status.streak
         let restToday = log.seconds(on: now)
         let state = House.state(streak: streak, log: log, now: now)
+        let level = House.level(earned: status.earned)
 
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     ZStack {
-                        HouseScene(state: state)
+                        HouseScene(state: state, level: level)
                             .background(state.sky)
                             .id(state)
                             .transition(.opacity)   // crossfade when the house changes state
                     }
                     .animation(.easeInOut(duration: 0.8), value: state)
+                    .animation(.easeInOut(duration: 0.8), value: level)
                     .overlay {
-                        // the door (sprite pixels 12–17 × 22–29) is a button into the house
+                        // the door (sprite pixels 32–42 × 42–61) is a button into the house
                         GeometryReader { geo in
-                            let px = geo.size.width / 32
+                            let px = geo.size.width / HouseScene.width
                             Canvas { ctx, _ in Self.drawDoor(ctx, px: px, step: doorStep) }
                                 .allowsHitTesting(false)
                             Button { enter() } label: { Color.clear.contentShape(Rectangle()) }
-                                .frame(width: 6 * px, height: 8 * px)
+                                .frame(width: 11 * px, height: 20 * px)
                                 .tour(.door)   // before .position, which fills the house
-                                .position(x: 15 * px, y: 26 * px)
+                                .position(x: 37.5 * px, y: 52 * px)
                         }
                     }
                     .sensoryFeedback(trigger: doorStep) { _, step in
@@ -58,7 +60,7 @@ struct HomeView: View {
                     }
                     .pixelBox()
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Your house: \(state.title)")
+                    .accessibilityLabel("Your house: \(state.title), \(House.levelNames[level])")
                     .accessibilityHint("Double-tap to go inside")
                     .accessibilityAction { enter() }
                     .tour(.house)
@@ -82,6 +84,10 @@ struct HomeView: View {
                                color: .blue,
                                fraction: restToday / House.restGoal)
                         .tour(.rest)
+                    BrickMeter(title: "House: \(House.levelNames[level])",
+                               detail: House.toNextLevel(earned: status.earned).map { "\($0) bricks to fix up" } ?? "All fixed up",
+                               filled: level * 2,
+                               color: .brick)
 
                     if state != .calm && state != .resting { restCard }
                     if let next { nextCard(next, status).tour(.next) }
@@ -131,20 +137,21 @@ struct HomeView: View {
         }
     }
 
-    /// The door's open frames, drawn over the sprite's door (columns 14–15, rows 24–27).
+    /// The door's open frames, drawn over the sprite's door (columns 32–42, rows 42–61;
+    /// the knob is on the left, so it swings open from the left edge).
     static func drawDoor(_ ctx: GraphicsContext, px: CGFloat, step: Int) {
         guard step > 0 else { return }
         func fill(_ x: Int, _ y: Int, _ w: Int, _ h: Int, _ c: Color) {
             ctx.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px, width: CGFloat(w) * px + 0.5, height: CGFloat(h) * px + 0.5)), with: .color(c))
         }
         let light = Color(red: 0.96, green: 0.79, blue: 0.36)     // warm room light (palette k)
-        let leaf = Color(red: 0.42, green: 0.27, blue: 0.15)      // door edge (palette d)
+        let leaf = Color(red: 0.06, green: 0.22, blue: 0.31)      // door edge (palette n)
         if step == 1 {                                            // ajar: a sliver of light
-            fill(15, 24, 1, 4, light)
+            fill(32, 42, 2, 20, light)
         } else {                                                  // open: leaf swung in, light spills out
-            fill(14, 24, 1, 4, leaf)
-            fill(15, 24, 1, 4, light)
-            fill(14, 28, 2, 1, light.opacity(0.5))
+            fill(32, 42, 8, 20, light)
+            fill(40, 42, 3, 20, leaf)
+            fill(31, 62, 10, 1, light.opacity(0.5))
         }
     }
 
@@ -305,22 +312,24 @@ struct InsideView: View {
     }
 }
 
-/// The house sprite with a little life on top, in the sprite's own 32×32 pixels:
-/// chimney smoke when calm, grey smoke when stressed, rain when overloaded,
-/// rain and falling bricks when crumbling, floating Z's and stars when resting.
-/// Off with Reduce Motion.
+/// The house sprite (96×64, `house.<state>.<level>`, tools/house_art.py) with a
+/// little life on top, in the sprite's own pixels: chimney smoke when calm, grey
+/// smoke when stressed, rain when overloaded, rain and falling bricks when
+/// crumbling, twinkling stars and Z's when resting. Off with Reduce Motion.
 struct HouseScene: View {
     let state: House.State
+    var level = 4
+    static let width: CGFloat = 96
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Image("house." + state.rawValue).pixelArt()
+        Image("house.\(state.rawValue).\(level)").pixelArt()
             .overlay {
                 if !reduceMotion {
                     // 12 fps on purpose: smooth motion looks wrong on pixel art.
                     TimelineView(.animation(minimumInterval: 1 / 12)) { timeline in
                         Canvas { ctx, size in
-                            Self.draw(state, t: timeline.date.timeIntervalSinceReferenceDate, ctx: ctx, px: size.width / 32)
+                            Self.draw(state, t: timeline.date.timeIntervalSinceReferenceDate, ctx: ctx, px: size.width / Self.width)
                         }
                     }
                     .clipped()
@@ -338,18 +347,18 @@ struct HouseScene: View {
         func phase(_ period: Double, _ offset: Double) -> Double {
             (t / period + offset).truncatingRemainder(dividingBy: 1)
         }
-        func smoke(_ color: Color, period: Double) {
+        func smoke(_ color: Color, period: Double) {   // from the chimney top (x 24–32, y 15)
             for i in 0..<3 {
                 let p = phase(period, Double(i) / 3)
-                let size: Double = p < 0.5 ? 2 : 1
-                dot(16 + p * 4 + sin(p * 6), 3 - p * 5, color.opacity(1 - p), w: size, h: size)
+                let size: Double = p < 0.5 ? 4 : 3
+                dot(27 + p * 10 + sin(p * 6) * 2, 12 - p * 12, color.opacity(1 - p), w: size, h: size)
             }
         }
         func rain(_ drops: Int) {
             for i in 0..<drops {
-                // 37 is coprime with 32, so every drop gets its own column
-                dot(Double((i * 37 + 5) % 32), 4 + phase(0.6, Double(i) * 0.137) * 25,
-                    Color(red: 0.62, green: 0.71, blue: 0.85).opacity(0.85), h: 2)
+                // 37 is coprime with 96, so every drop gets its own column
+                dot(Double((i * 37 + 5) % 96), 2 + phase(0.6, Double(i) * 0.137) * 58,
+                    Color(red: 0.62, green: 0.71, blue: 0.85).opacity(0.85), h: 4)
             }
         }
 
@@ -359,21 +368,23 @@ struct HouseScene: View {
         case .stressed:
             smoke(Color(white: 0.55), period: 1.8)
         case .overloaded:
-            rain(8)
+            rain(24)
         case .crumbling:
-            rain(16)
-            for (i, x) in [6.0, 23].enumerated() {   // bricks slipping off the eaves
+            rain(48)
+            for (i, x) in [17.0, 73].enumerated() {   // bricks slipping off the eaves
                 let p = phase(2.4, Double(i) / 2)
-                if p < 0.5 { dot(x, 16 + 12 * (p * 2) * (p * 2), Color(red: 0.70, green: 0.29, blue: 0.20), w: 2) }
+                if p < 0.5 { dot(x, 40 + 21 * (p * 2) * (p * 2), Color(red: 0.70, green: 0.29, blue: 0.20), w: 4, h: 2) }
             }
         case .resting:
-            for (i, (x, y)) in [(3.0, 3.0), (9, 1), (13, 6), (30, 9), (19, 1)].enumerated() {
+            for (i, (x, y)) in [(6.0, 4.0), (16, 9), (30, 3), (64, 6), (72, 14), (90, 22), (10, 24)].enumerated() {
                 dot(x, y, Color(red: 1, green: 0.95, blue: 0.7).opacity(0.3 + 0.7 * max(0, sin(t * 2 + Double(i) * 1.7))))
             }
-            for i in 0..<2 {
+            for i in 0..<2 {   // a 5×5 Z drifting up from the chimney
                 let p = phase(4, Double(i) / 2)
-                let (x, y, c) = (25 + p * 3, 5 - p * 6, Color.white.opacity(1 - p))
-                dot(x, y, c, w: 3); dot(x + 1, y + 1, c); dot(x, y + 2, c, w: 3)   // a 3×3 z
+                let (x, y, c) = (30 + p * 8, 12 - p * 11, Color.white.opacity(1 - p))
+                dot(x, y, c, w: 5)
+                for k in 1...3 { dot(x + 4 - Double(k), y + Double(k), c) }
+                dot(x, y + 4, c, w: 5)
             }
         }
     }

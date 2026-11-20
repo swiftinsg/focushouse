@@ -12,6 +12,8 @@ struct SettingsView: View {
     @AppStorage("autoAddToCalendar") private var autoAddToCalendar = false
     @AppStorage("askFreeTime") private var askFreeTime = false
     @AppStorage("screenTimeRest") private var screenTimeRest = false
+    @AppStorage("testerMode", store: RestLog.defaults) private var testerMode = true
+    @AppStorage("restMinBreak", store: RestLog.defaults) private var restMinBreak = RestLog.defaultMinutes
     @AppStorage("limitSchool") private var limitSchool = WorkLimit.schoolDefault
     @AppStorage("limitOff") private var limitOff = WorkLimit.offDefault
     @AppStorage("showDamage") private var showDamage = true
@@ -30,7 +32,7 @@ struct SettingsView: View {
                 } header: {
                     Text("My routine").pixelHeader()
                 } footer: {
-                    Text(useRoutine ? "Tasks are only scheduled between wake-up and bedtime\(hasSchool ? ", outside school hours" : "")."
+                    Text(useRoutine ? "Tasks are only scheduled between wake-up and bedtime\(hasSchool ? ", which are outside of school hours" : "")."
                                     : "No routine (e.g. holidays): tasks can go anywhere from 8 AM to 11 PM, around your Calendar events.")
                 }
                 if useRoutine {
@@ -64,12 +66,21 @@ struct SettingsView: View {
                         .onChange(of: screenTimeRest) { _, on in
                             if on { Task { screenTimeRest = await ScreenTime.enable() } } else { ScreenTime.disable() }
                         }
+                    Stepper("Rest after \(HomeView.duration(TimeInterval(restMinBreak * 60))) away",
+                            value: $restMinBreak, in: RestLog.floorMinutes...RestLog.defaultMinutes, step: 15)
                 } header: {
                     Text("Rest").pixelHeader()
                 } footer: {
                     Text(screenTimeRest
-                         ? "Rest is \(Int(RestLog.minBreak / 3600)) hours or more in a row without using your phone. \(Int(House.restGoal / 3600)) hours of rest in a day repairs your house a step. Tasks done with your phone down the whole time earn 50% more bricks."
-                         : "Rest is \(Int(RestLog.minBreak / 3600)) hours or more in a row away from focushouse. It can't see other apps, so turn on Screen Time to count only time off your whole phone.")
+                         ? "Rest is \(HomeView.duration(TimeInterval(restMinBreak * 60))) or more in a row without using your phone (counted in whole hours). \(Int(House.restGoal / 3600)) hours of rest in a day repairs your house a step. Tasks done with your phone down the whole time earn 50% more bricks."
+                         : "Rest is \(HomeView.duration(TimeInterval(restMinBreak * 60))) or more in a row away from focushouse (at least 15 min). It can't see other apps, so turn on Screen Time to count only time off your whole phone.")
+                }
+                Section {   // TESTER: remove before release
+                    Toggle("Tester mode", isOn: $testerMode)
+                } header: {
+                    Text("Testing").pixelHeader()
+                } footer: {
+                    Text("For trying the app out: tasks pay bricks even when ticked early or without \"How did it go?\", with no daily or per-task caps, and rest during a task still counts. Turn it off to play by the real rules.")
                 }
                 Section {
                     Toggle("Weekly summary", isOn: $summaryOn)

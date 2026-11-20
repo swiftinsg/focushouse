@@ -71,7 +71,6 @@ struct SubtaskEditor: View {
 private struct SubtaskField: View {
     @Bindable var task: PlanTask
     var focused: FocusState<PersistentIdentifier?>.Binding
-    private static let durations = [5, 10, 15, 20, 25, 30, 40, 45, 50, 60, 75, 90, 105, 120]
 
     var body: some View {
         HStack(spacing: 12) {
@@ -83,7 +82,7 @@ private struct SubtaskField: View {
 
             Menu {
                 Picker("Duration", selection: $task.minutes) {
-                    ForEach(Set(Self.durations + [task.minutes]).sorted(), id: \.self) {
+                    ForEach(Set(taskDurations + [task.minutes]).sorted(), id: \.self) {
                         Text(hoursAndMinutes($0)).tag($0)
                     }
                 }

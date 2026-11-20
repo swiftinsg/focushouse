@@ -37,7 +37,7 @@ import UserNotifications
             guard let start = task.start, let end = task.end else { continue }
             if start > now {
                 add(id: task.key + ".start", at: start, title: "Time for: \(task.title)",
-                    body: "\(task.minutes) min, until \(end.formatted(date: .omitted, time: .shortened))",
+                    body: "\(task.minutes) min, until \(end.formatted(date: .omitted, time: .shortened))" + (task.minutes > Plan.longTask && task.category != Plan.freeTime ? ". Long tasks still need breaks: stand up and stretch every hour." : ""),
                     task: task)
             }
             if end > now {

@@ -145,7 +145,7 @@ extension KeptTask {
             guard t.isDone, r.effort != .easy else { continue }
             let day = Calendar.current.startOfDay(for: t.doneAt ?? t.dueDate)
             todosPaid[day, default: 0] += 1
-            if todosPaid[day]! <= House.todoDailyCount { bricks.append((day, House.todoBricks)) }
+            if Tester.on || todosPaid[day]! <= House.todoDailyCount { bricks.append((day, House.todoBricks)) }   // TESTER: no 10 a day cap
         }
         load += events.map { ($0.start, House.stress(minutes: $0.minutes, rating($0.title, priority: 1))) }
         streak = House.streak(load, now: now)

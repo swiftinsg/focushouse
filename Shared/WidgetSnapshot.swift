@@ -16,6 +16,8 @@ struct WidgetSnapshot: Codable, Equatable {
 
     var streak = 0
     var bricks = 0
+    /// Bricks earned all-time: how fixed-up the house is (`House.level`).
+    var earned = 0
     /// Today's plan tasks, by start time.
     var today: [Item] = []
     /// Planned work minutes per day (`RestLog.key`), last 7 days.
