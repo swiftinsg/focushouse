@@ -45,6 +45,7 @@ enum AIEval {
     /// "electrochemical". "a|b" means either alternative; all words of one must appear.
     enum Check {
         case covers(String)                    // some item or step mentions it
+        case avoids(String)                    // no item or step mentions it
         case noPlaceholders                    // Today: no line left as a 30-min placeholder
         case items(ClosedRange<Int>)           // number of items
         case minutes(String, ClosedRange<Int>) // the matching item's total minutes
@@ -162,6 +163,26 @@ enum AIEval {
              days: 5,
              checks: [.covers("cell"), .covers("enzyme"), .covers("photosynth"), .covers("respirat"), .covers("genetic"),
                       .order(["cell", "enzyme", "photosynth", "respirat", "genetic"]), .spread(0.6), .finishesInTime]),
+
+        // Nonsense: impossible or silly goals still get a sane, doable plan
+        Case(name: "Nonsense: go to the moon today", mode: .today,
+             input: "go to the moon",
+             checks: [.noPlaceholders, .items(1...3), .total(10...240), .maxStep(120), .covers("look moon|read moon|learn moon|research moon|watch moon"), .avoids("book|launch|arrange travel|spaceship|transform")]),
+        Case(name: "Nonsense: explore outer space", mode: .goal,
+             input: "Explore outer space", days: 5,
+             checks: [.covers("space|planet|star|astronom|rocket|universe|solar|galax|nasa"), .spread(0.4), .total(60...900),
+                      .maxStep(120), .fitsFreeTime, .finishesInTime, .avoids("book|launch|arrange travel|spaceship|transform")]),
+        Case(name: "Nonsense: mixed with real work", mode: .today,
+             input: "math hw\nbecome a dragon\nfly to mars\nwash uniform",
+             checks: [.noPlaceholders, .covers("math"), .covers("uniform"), .minutes("math", 20...120), .total(30...360), .maxStep(120),
+                      .covers("look dragon|read dragon|learn dragon|draw dragon"), .covers("look mars|read mars|learn mars|research mars|watch mars"), .avoids("book|launch|arrange travel|spaceship|transform")]),
+        Case(name: "Nonsense: keyboard mash", mode: .today,
+             input: "asdfgh qwerty zxcv\npack bag",
+             checks: [.items(1...1), .covers("bag"), .avoids("asdfgh|qwerty")]),
+        Case(name: "Nonsense: become president by friday", mode: .goal,
+             input: "Become president of the world by Friday", days: 3,
+             checks: [.total(30...600), .maxStep(120), .fitsFreeTime, .finishesInTime,
+                      .avoids("arrange travel|attend event|past paper|past year"), .avoids("book|launch|arrange travel|spaceship|transform")]),
     ]
 
     // MARK: Tests
@@ -170,12 +191,14 @@ enum AIEval {
     func accuracy() async throws {
         let stash = Self.stashAdaptiveData()
         defer { Self.restore(stash) }
+        // AI_EVAL_ONLY=Nonsense runs just the cases whose name starts with it.
+        let cases = Self.cases.filter { $0.name.hasPrefix(ProcessInfo.processInfo.environment["AI_EVAL_ONLY"] ?? "") }
         var lines = ["# focushouse AI eval", "",
-                     "\(Date.now.formatted()) · \(Self.cases.count) cases × \(Self.runs) runs", ""]
+                     "\(Date.now.formatted()) · \(cases.count) cases × \(Self.runs) runs", ""]
         var passed = 0, total = 0
         var byKind: [String: (pass: Int, all: Int)] = [:]
 
-        for c in Self.cases {
+        for c in cases {
             for run in 1...Self.runs {
                 let plan = Self.makePlan(c)
                 var results: [(String, Bool, String)] = []
@@ -242,6 +265,9 @@ enum AIEval {
         switch check {
         case .covers(let key):
             return (items(matching: key, in: draft).isEmpty == false, "")
+        case .avoids(let key):
+            let hit = items(matching: key, in: draft)
+            return (hit.isEmpty, hit.map(\.title).joined(separator: ", "))
         case .noPlaceholders:
             let lines = Planner.items(c.input)
             let dropped = draft.items.filter { item in
@@ -310,6 +336,7 @@ enum AIEval {
         switch check {
         case .covers(let k): "covers \(k)"
         case .noPlaceholders: "noPlaceholders"
+        case .avoids(let k): "avoids \(k)"
         case .items(let r): "items \(r)"
         case .minutes(let k, let r): "minutes \(k) in \(r)"
         case .total(let r): "total in \(r)"

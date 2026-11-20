@@ -9,6 +9,11 @@ struct PlannerTests {
                                   items: ["maths hw", "tidy room", "read ch 4"]) == "Maths hw & Tidy room +1")
     }
 
+    @Test func onlyLongWordLinesCanBeGibberish() {
+        #expect(Planner.gibberish("asdfgh qwerty zxcv"))
+        #expect(!Planner.gibberish("tys qns") && !Planner.gibberish("pw") && !Planner.gibberish("reply to jia hui"))
+    }
+
     @Test func splitsToDoDump() {
         #expect(Planner.items("maths hw, read ch 4;\n- tidy room\n\n") == ["maths hw", "read ch 4", "tidy room"])
     }

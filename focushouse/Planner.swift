@@ -34,6 +34,18 @@ import FoundationModels
     var minutes: Int
 }
 
+@Generable struct LineChecks {
+    @Guide(description: "One answer per line, in the same order", .count(1...30))
+    var lines: [LineCheck]
+}
+
+@Generable struct LineCheck {
+    @Guide(description: "The line exactly as given")
+    var line: String
+    @Guide(description: "real, impossible or gibberish", .anyOf(["real", "impossible", "gibberish"]))
+    var kind: String
+}
+
 enum Planner {
     static let categories = ["homework", "study", "revision", "reading", "writing",
                              "project", "chores", "exercise", "other"]
@@ -64,6 +76,40 @@ enum Planner {
         short name, with its tasks as subtasks.
         """
 
+    /// Today mode: impossible lines ("go to the moon") become "Look up how to go to the
+    /// moon", something a student can really do; random letters are dropped. The model
+    /// only labels each line: its own rewrites ("launch rocket") and the same rule in the
+    /// planner's prompt (it copied the example into unrelated plans) both failed the eval.
+    // ponytail: one extra model call (~2 s) per Today plan; skip it for lines it never changes if that hurts.
+    static func realistic(_ input: String, mode: PlanMode) async -> String {
+        let lines = items(input)
+        guard mode == .today, !lines.isEmpty else { return input }
+        let session = LanguageModelSession(instructions: """
+            Label each of a student's to-do lines. real: something a student can actually do, \
+            including school work, chores, errands, school slang, short notes and names. \
+            impossible: can't really be done by a student, like travelling to space or another \
+            planet, turning into an animal or a monster, ruling the world, or time travel. \
+            gibberish: random letters with no meaning.
+            """)
+        let prompt = lines.map { "- " + $0 }.joined(separator: "\n")
+        guard let reply = try? await session.respond(to: prompt, generating: LineChecks.self).content,
+              reply.lines.count == lines.count else { return input }
+        return zip(lines, reply.lines).compactMap { line, check in
+            switch check.kind {
+            case "gibberish" where gibberish(line): nil
+            case "impossible": "Look up how to " + line.prefix(1).lowercased() + line.dropFirst()
+            default: line
+            }
+        }.joined(separator: "\n")
+    }
+
+    /// Plain-code guard on the model's "gibberish": only lines of long words, so short
+    /// slang and names ("tys qns", "pw", "jia hui") are never dropped.
+    static func gibberish(_ line: String) -> Bool {
+        let w = line.split(whereSeparator: { !$0.isLetter })
+        return !w.isEmpty && w.allSatisfy { $0.count >= 4 }
+    }
+
     /// Splits the plan's input into tasks. `previous` is the plan the student
     /// rejected with "Start over": the AI is asked for a genuinely different one.
     /// `history`: answered check-ins, so the plan fits how tasks really feel to them.
@@ -71,8 +117,10 @@ enum Planner {
         guard !isVague(plan.input), plan.mode == .goal || !items(plan.input).isEmpty else { throw PlannerError.vague }
         guard plan.mode == .today || !needsList(plan.input) || !materialTopics(plan.materials).isEmpty else { throw PlannerError.list }
         if plan.mode == .today, let line = passedTime(items(plan.input), start: plan.start) { throw PlannerError.passed(line) }
+        let input = await realistic(plan.input, mode: plan.mode)
+        guard plan.mode == .goal || !items(input).isEmpty else { throw PlannerError.vague }
         var session = LanguageModelSession(instructions: instructions)
-        let topics = plan.mode == .goal ? goalTopics(plan.input) : []
+        let topics = plan.mode == .goal ? goalTopics(input) : []
         let sections = plan.mode == .goal ? materialTopics(plan.materials) : []
         var prompt = switch plan.mode {
         case .today:
@@ -80,11 +128,11 @@ enum Planner {
             Tidy this messy to-do list into items for day 1. Every line must become an item. \
             Only merge exact duplicates. Set day to 1 for every item.
 
-            \(items(plan.input).map { "- " + $0 }.joined(separator: "\n"))
+            \(items(input).map { "- " + $0 }.joined(separator: "\n"))
             """
         case .goal:
             """
-            Goal: \(plan.input)
+            Goal: \(input)
             Spread the items over days 1 to \(plan.days), earlier steps first. \
             The goal must be done by the end of day \(plan.days).
             """ + (topics.isEmpty ? "" : "\nThe goal has \(topics.count) parts. Give every part at least one item, none left out:\n"
@@ -96,7 +144,7 @@ enum Planner {
         let material = plan.materials.trimmingCharacters(in: .whitespacesAndNewlines)
         if !material.isEmpty { prompt += "\n\nStudy material:\n" + material.prefix(6000) }
         let lean = prompt   // what a retry keeps when the context fills up
-        prompt += examples(for: plan.input + " " + material.prefix(2000))
+        prompt += examples(for: input + " " + material.prefix(2000))
         prompt += paceNote()
         prompt += Reflections.promptNote(history)
 
@@ -129,7 +177,7 @@ enum Planner {
                                                   options: GenerationOptions(samplingMode: .random(probabilityThreshold: 0.9), temperature: 0.7)).content
             }
             if plan.mode == .today {
-                let restored = reconcile(items(plan.input), in: &draft)
+                let restored = reconcile(items(input), in: &draft)
                 if !restored.isEmpty { await refill(restored, in: &draft) }
                 await addSteps(to: &draft)
             } else {
@@ -147,10 +195,10 @@ enum Planner {
                     }
                 }
                 for i in draft.items.indices { draft.items[i].day = min(max(draft.items[i].day, 1), max(plan.days, 1)) }
-                cover(topics, goal: plan.input, days: plan.days, in: &draft)
-                cover(sections, goal: plan.input, days: plan.days, inOrder: true, in: &draft)
+                cover(topics, goal: input, days: plan.days, in: &draft)
+                cover(sections, goal: input, days: plan.days, inOrder: true, in: &draft)
                 spread(&draft, days: plan.days)
-                goalPriorities(topics, goal: plan.input, in: &draft)
+                goalPriorities(topics, goal: input, in: &draft)
                 await addSteps(to: &draft)
             }
             return tidied(draft)
