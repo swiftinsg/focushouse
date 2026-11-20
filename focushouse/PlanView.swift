@@ -132,16 +132,17 @@ struct PlanView: View {
 
             Section {
                 Button("Delete plan", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                    // On the button, so the popup points at it rather than the middle of the list.
+                    .confirmationDialog("Delete \(plan.title.isEmpty ? "this plan" : "“\(plan.title)”")?",
+                                        isPresented: $confirmDelete, titleVisibility: .visible) {
+                        Button("Delete plan", role: .destructive) {
+                            plan.deletePlan()
+                            dismiss()
+                        }
+                    } message: {
+                        Text("Its tasks, reminders and Calendar events go too.")
+                    }
             }
-        }
-        .confirmationDialog("Delete \(plan.title.isEmpty ? "this plan" : "“\(plan.title)”")?", isPresented: $confirmDelete,
-                            titleVisibility: .visible) {
-            Button("Delete plan", role: .destructive) {
-                plan.deletePlan()
-                dismiss()
-            }
-        } message: {
-            Text("Its tasks, reminders and Calendar events go too.")
         }
         .animation(.smooth, value: plan.ordered.map(\.start))
     }
@@ -346,21 +347,11 @@ private struct ParentRow: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Button {
-                withAnimation(.snappy) {
-                    let newValue = !allDone
-                    tasks.forEach { newValue ? CheckIn.shared.tick($0) : CheckIn.shared.untick($0) }
-                }
+            BouncyCheck(done: allDone, label: allDone ? "Mark all not done" : "Mark all done") {
+                let newValue = !allDone
+                tasks.forEach { newValue ? CheckIn.shared.tick($0) : CheckIn.shared.untick($0) }
                 onChange()   // re-arm reminders
-            } label: {
-                Image(systemName: allDone ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundStyle(allDone ? AnyShapeStyle(.green) : AnyShapeStyle(.tertiary))
-                    .contentTransition(.symbolEffect(.replace))
             }
-            .buttonStyle(.plain)
-            .sensoryFeedback(.success, trigger: allDone) { _, done in done }
-            .accessibilityLabel(allDone ? "Mark all not done" : "Mark all done")
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -401,18 +392,10 @@ private struct TaskRow: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Button {
-                withAnimation(.snappy) { CheckIn.shared.toggle(task) }
+            BouncyCheck(done: task.done, label: task.done ? "Mark not done" : "Mark done") {
+                CheckIn.shared.toggle(task)
                 onChange()   // re-arm reminders; a finished task keeps its time
-            } label: {
-                Image(systemName: task.done ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundStyle(task.done ? AnyShapeStyle(.green) : AnyShapeStyle(.tertiary))
-                    .contentTransition(.symbolEffect(.replace))
             }
-            .buttonStyle(.plain)
-            .sensoryFeedback(.success, trigger: task.done) { _, done in done }
-            .accessibilityLabel(task.done ? "Mark not done" : "Mark done")
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {

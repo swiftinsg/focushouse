@@ -67,7 +67,8 @@ struct ContentView: View {
             .alert("Couldn't add to Calendar", isPresented: Binding(get: { calendarError != nil }, set: { if !$0 { calendarError = nil } })) {
                 Button("OK") {}
             } message: { Text(calendarError ?? "") }
-            .sheet(isPresented: .constant(!seenCalendarTip)) {
+            // Closed once (Got it or swiped down) = never shown again; Settings still has it.
+            .sheet(isPresented: Binding(get: { !seenCalendarTip }, set: { if !$0 { seenCalendarTip = true } })) {
                 NavigationStack {
                     CalendarTipView()
                         .toolbar { Button("Got it") { seenCalendarTip = true } }

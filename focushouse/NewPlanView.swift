@@ -164,7 +164,7 @@ struct NewPlanView: View {
             let history = Reflections.history(in: context)
             plan.breakMinutes = Reflections.breakMinutes(history)
             let draft = try await Planner.draft(for: plan, history: history)
-            plan.title = draft.title.trimmingCharacters(in: .whitespaces.union(.punctuationCharacters))
+            plan.title = Planner.planTitle(draft.title, input: input, items: draft.items.map(\.title))
             context.insert(plan)
             plan.replaceTasks(with: draft)
             if autoAddToCalendar { _ = try? await CalendarSync.add(plan) }
@@ -178,7 +178,7 @@ struct NewPlanView: View {
 
     private func makeManual() {
         let firstLine = input.split(separator: "\n").first.map(String.init) ?? ""
-        let plan = newPlan(title: firstLine.isEmpty ? "My plan" : firstLine, input: "")
+        let plan = newPlan(title: firstLine, input: "")   // blank shows the grey "Plan name" hint
         plan.breakMinutes = Reflections.breakMinutes(Reflections.history(in: context))
         onCreate(plan)
     }
@@ -217,6 +217,7 @@ extension Plan {
     @MainActor private func replace(_ old: [PlanTask], with draft: DraftPlan) {
         CalendarSync.remove(old)
         Reminders.cancel(old)
+        KeptTask.keep(old)
         old.forEach { modelContext?.delete($0) }
         let kept = tasks.filter { t in !old.contains { $0 === t } }
         // "tuition at 7pm": that item stays one task, pinned at 7 PM.

@@ -75,6 +75,39 @@ enum Ratings {
     var compulsory: Bool
 }
 
+/// A finished plan task, kept when its plan or the task itself is deleted, so its
+/// bricks and stress stay counted. Also the shape `HouseStatus` reads live tasks in.
+struct KeptTask: Codable, Equatable {
+    var title: String
+    var category: String
+    var priority: Int
+    var minutes: Int
+    var estimate: Int?
+    var start: Date?
+    var day: Date?
+    var earns: Bool
+}
+
+extension KeptTask {
+    @MainActor init(_ t: PlanTask) {
+        self.init(title: t.title, category: t.category, priority: t.priority, minutes: t.minutes,
+                  estimate: t.estimate, start: t.start, day: t.start ?? t.plan?.start, earns: t.earnsBricks)
+    }
+
+    static let key = "keptTasks"
+    static func load(_ data: Data) -> [KeptTask] { (try? JSONDecoder().decode([KeptTask].self, from: data)) ?? [] }
+
+    /// Call before deleting tasks: the done ones are saved for good.
+    // ponytail: grows by one row per deleted done task; trim to the last few months if it ever matters.
+    @MainActor static func keep(_ tasks: [PlanTask]) {
+        let done = tasks.filter(\.done).map(KeptTask.init)
+        guard !done.isEmpty else { return }
+        let d = UserDefaults.standard
+        let all = load(d.data(forKey: key) ?? Data()) + done
+        d.set((try? JSONEncoder().encode(all)) ?? Data(), forKey: key)
+    }
+}
+
 /// Home's stress streak and earned bricks from the saved tasks, Tasks-tab items
 /// and Calendar events. The widgets get the same numbers through `WidgetSync`.
 // ponytail: scans every task each time; fine for a student's few hundred.
@@ -85,17 +118,18 @@ enum Ratings {
     private let pace: [String: Double]
 
     init(tasks: [PlanTask], todos: [TodoItem], events: [(title: String, start: Date, minutes: Int)],
-         ratings: [String: Rating], now: Date = .now) {
+         ratings: [String: Rating], kept: [KeptTask] = KeptTask.load(UserDefaults.standard.data(forKey: KeptTask.key) ?? Data()),
+         now: Date = .now) {
         self.ratings = ratings
         pace = Dictionary(Planner.pace().map { ($0.category, $0.ratio) }, uniquingKeysWith: { a, _ in a })
         var load: [(day: Date, minutes: Int)] = []
         var bricks: [(day: Date, bricks: Int)] = []
         // Stress per day from what the student does and attends: plan tasks at their
         // time, Tasks-tab items on their due day, Calendar events.
-        for t in tasks {
+        for t in tasks.map(KeptTask.init) + kept {
             let r = rating(t.title, priority: t.priority, category: t.category)
             if let start = t.start { load.append((start, House.stress(minutes: t.minutes, r))) }
-            if t.earnsBricks, let day = t.start ?? t.plan?.start {
+            if t.earns, let day = t.day {
                 bricks.append((day, House.bricks(minutes: t.estimate ?? t.minutes, r.effort)))
             }
         }

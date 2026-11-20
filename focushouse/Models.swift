@@ -89,6 +89,7 @@ enum PlanMode: String, CaseIterable {
 extension Plan {
     /// Deletes the whole plan with its Calendar events and reminders.
     @MainActor func deletePlan() {
+        KeptTask.keep(tasks)   // finished work keeps its bricks and stress
         CalendarSync.remove(tasks)
         Reminders.cancel(tasks)
         modelContext?.delete(self)
@@ -96,6 +97,7 @@ extension Plan {
 
     /// Deletes tasks with their Calendar events and reminders, then reflows.
     @MainActor func delete(_ gone: [PlanTask]) {
+        KeptTask.keep(gone)
         CalendarSync.remove(gone)
         Reminders.cancel(gone)
         tasks.removeAll { t in gone.contains { $0 === t } }

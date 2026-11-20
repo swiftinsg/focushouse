@@ -3,6 +3,12 @@ import Testing
 @testable import focushouse
 
 struct PlannerTests {
+    @Test func plansAreNamedAfterTheStudentsWork() {
+        #expect(Planner.planTitle("Biology exam revision", input: "revise for my bio exam", items: ["Cells"]) == "Biology exam revision")
+        #expect(Planner.planTitle("Tuesday to-dos", input: "maths hw, tidy room, read ch 4",
+                                  items: ["maths hw", "tidy room", "read ch 4"]) == "Maths hw & Tidy room +1")
+    }
+
     @Test func splitsToDoDump() {
         #expect(Planner.items("maths hw, read ch 4;\n- tidy room\n\n") == ["maths hw", "read ch 4", "tidy room"])
     }

@@ -17,6 +17,15 @@ struct HouseTests {
         #expect(!Ratings.heavy("wake up early"))
     }
 
+    @MainActor @Test func deletedDoneTasksKeepBricksAndStress() {
+        let kept = [KeptTask(title: "Maths homework", category: "homework", priority: 0, minutes: 200,
+                             estimate: 60, start: daysAgo(0), day: daysAgo(0), earns: true)]
+        let status = HouseStatus(tasks: [], todos: [], events: [], ratings: [:], kept: kept, now: now)
+        #expect(status.earned > 0)
+        #expect(status.streak == 1)
+        #expect(HouseStatus(tasks: [], todos: [], events: [], ratings: [:], kept: [], now: now).earned == 0)
+    }
+
     @Test func streakCountsStressfulDaysInARow() {
         let load = [(daysAgo(0), 120), (daysAgo(1), 60), (daysAgo(1), 60), (daysAgo(2), 150), (daysAgo(4), 300)]
         #expect(House.streak(load, now: now) == 3)   // day 3 is light, so day 4 doesn't count

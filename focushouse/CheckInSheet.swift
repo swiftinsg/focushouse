@@ -28,13 +28,13 @@ struct CheckInSheet: View {
 
                 Section {
                     Stepper(value: $minutes, in: 5...480, step: 5) {
-                        LabeledContent("Time it took", value: hoursAndMinutes(minutes))
+                        LabeledContent("How much time it took", value: hoursAndMinutes(minutes))
                     }
                 } footer: {
                     Text("Planned \(hoursAndMinutes(task.estimate ?? task.minutes))")
                 }
 
-                Section("How did it feel?") {
+                Section("How did the tasks feel?") {
                     HStack(spacing: 8) {
                         ForEach(Self.feelings.indices, id: \.self) { i in
                             let (emoji, caption) = Self.feelings[i]
@@ -57,34 +57,33 @@ struct CheckInSheet: View {
                 }
 
                 Section {
-                    TextField("Anything that helped or got in the way?", text: $note, axis: .vertical)
+                    TextField("Did anything helped you to do or got in the way?", text: $note, axis: .vertical)
                         .lineLimit(2...4)
                 } header: {
                     Text("Note (optional)")
                 } footer: {
                     Text("Stays on your phone. Notes are deleted after 30 days.")
                 }
-
-                Section {
-                    VStack(spacing: 12) {
-                        Button {
-                            CheckIn.shared.save(task, minutes: minutes, feeling: feeling!, note: note)
-                        } label: {
-                            Text("Save")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.glassProminent)
-                        .controlSize(.large)
-                        .disabled(feeling == nil)
-
-                        Button("Skip (no bricks)") { CheckIn.shared.skip(task) }
+            }
+            // Save and Skip stay at the bottom of the screen, under the form.
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 12) {
+                    Button {
+                        CheckIn.shared.save(task, minutes: minutes, feeling: feeling!, note: note)
+                    } label: {
+                        Text("Save")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
                     }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                } footer: {
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.large)
+                    .disabled(feeling == nil)
+
+                    Button("Skip (no bricks)") { CheckIn.shared.skip(task) }
                     Text("Bricks are added once you answer.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
+                .padding()
             }
             .paperBackground()
         }

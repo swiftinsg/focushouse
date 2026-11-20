@@ -4,11 +4,12 @@ import SwiftUI
 /// explains it. Toolbar and tab bar sit outside the overlay, so those steps
 /// point at them with an arrow instead of a spotlight.
 enum TourStep: Int, CaseIterable {
-    case house, status, stress, rest, next, settings, bricks, tabs
+    case house, door, status, stress, rest, next, settings, bricks, tabs
 
     var title: String {
         switch self {
         case .house: "This house is you"
+        case .door: "Go inside"
         case .status: "How you're doing"
         case .stress: "Stress this week"
         case .rest: "Rest today"
@@ -21,9 +22,10 @@ enum TourStep: Int, CaseIterable {
 
     var text: String {
         switch self {
-        case .house: "It mirrors your mental health. Stressful days in a row wear it down, and rest builds it back up. Look after yourself and it stays standing. Tap the door to go inside."
-        case .status: "Calm, Stressed, Overloaded or Crumbling, based on how many hard days you've had in a row. Resting means you rested enough today to repair a step."
-        case .stress: "Fills a little for each stressful day in a row. Easy tasks don't count, and lessons and exams count half."
+        case .house: "It shows the state your mental health. Multiple stressful days in a row wear the house down, and rest builds it back up. Look after yourself by having a good work life balance and it stays standing."
+        case .door: "Tap the door to step inside your house. That's where the furniture you buy with bricks goes."
+        case .status: "Calm, Stressed, Overloaded or Crumbling, the house's state is based on how many hard days you've had in a row. Resting means you rested enough today to repair a step."
+        case .stress: "It fills the bar for each stressful day in a row. Easy tasks don't count, and lessons and exams count half."
         case .rest: "Time with your phone down while you're awake. Reach \(HomeView.duration(House.restGoal)) in a day to repair your house one step."
         case .next: "Tick the box when you finish to earn bricks, then say how it went so future plans fit your pace."
         case .settings: "Tap the gear for your routine, school hours, daily work limit and how rest is counted."
@@ -35,7 +37,7 @@ enum TourStep: Int, CaseIterable {
     /// Where the arrow points when there's nothing to spotlight.
     var arrow: (symbol: String, edge: Alignment)? {
         switch self {
-        case .settings: ("arrow.up.left", .topLeading)
+        case .settings: ("arrow.up", .topLeading)
         case .bricks: ("arrow.up.right", .topTrailing)
         case .tabs: ("arrow.down", .bottom)
         default: nil

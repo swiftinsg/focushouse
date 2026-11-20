@@ -16,6 +16,10 @@ struct Hint: Tip {
         self.image = Image(systemName: symbol)
     }
 
+    /// Shown once: closing it (or tapping away) means it never comes back,
+    /// until Settings → Show intro resets it.
+    var options: [any TipOption] { Tips.MaxDisplayCount(1) }
+
     static let calendar = Hint("calendar", "Your month", "Tap a day to see its events and tasks.", "calendar")
 
     /// Reads the "Show intro" request from last session; call before `Tips.configure`.

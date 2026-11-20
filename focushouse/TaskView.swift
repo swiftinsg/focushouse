@@ -93,12 +93,7 @@ struct TaskView: View {
                         
                         Spacer()
                         
-                        Button {
-                            task.isDone.toggle()
-                        } label: {
-                            Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
-                        }
-                        .buttonStyle(.plain)
+                        TodoTick(todo: task, size: .body)
                     }
                 }
                 .onDelete(perform: deleteTasks)
@@ -171,4 +166,56 @@ struct TaskView: View {
 #Preview {
     TaskView(minimumDueDate: .distantPast, sortOrder: [SortDescriptor(\TodoItem.name)])
         .modelContainer(for: TodoItem.self, inMemory: true)
+}
+
+/// The bouncy tick: the circle pops into a green check with a ring burst, and
+/// `action` runs once it's been seen, so the row doesn't vanish (or the check-in
+/// sheet cover it) mid-animation. Unticking is instant.
+struct BouncyCheck: View {
+    let done: Bool
+    var label: String
+    var size: Font = .title2
+    let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var popping = false
+
+    private var shown: Bool { done || popping }
+
+    var body: some View {
+        Button {
+            if done { action(); return }
+            guard !popping else { return }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.45)) { popping = true }
+            Task {
+                try? await Task.sleep(for: .seconds(reduceMotion ? 0.3 : 0.9))
+                withAnimation(.snappy) { action() }
+                withAnimation(.spring) { popping = false }
+            }
+        } label: {
+            ZStack {
+                Circle().stroke(.green, lineWidth: 2)   // burst ring
+                    .scaleEffect(popping && !reduceMotion ? 1.9 : 1)
+                    .opacity(popping && !reduceMotion ? 0 : 0.001)
+                    .animation(.easeOut(duration: 0.5), value: popping)
+                Image(systemName: shown ? "checkmark.circle.fill" : "circle")
+                    .font(size)
+                    .foregroundStyle(shown ? AnyShapeStyle(.green) : AnyShapeStyle(.tertiary))
+                    .scaleEffect(popping && !reduceMotion ? 1.25 : 1)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.success, trigger: popping) { _, on in on }
+        .accessibilityLabel(label)
+    }
+}
+
+/// Tick for a to-do: marked done (and leaves the list) after the bouncy check.
+struct TodoTick: View {
+    let todo: TodoItem
+    var size: Font = .title2
+
+    var body: some View {
+        BouncyCheck(done: todo.isDone, label: "Mark \(todo.name) done", size: size) { todo.isDone = true }
+    }
 }

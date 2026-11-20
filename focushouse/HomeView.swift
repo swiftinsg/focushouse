@@ -8,6 +8,7 @@ struct HomeView: View {
     @Query private var todos: [TodoItem]
     @AppStorage("restLog", store: RestLog.defaults) private var restData = Data()
     @AppStorage("ratings") private var ratingData = Data()
+    @AppStorage(KeptTask.key) private var keptData = Data()
     @State private var events: [(title: String, start: Date, minutes: Int)] = []
     @State private var showSettings = false
     @State private var showInside = false
@@ -44,6 +45,7 @@ struct HomeView: View {
                             Button { enter() } label: { Color.clear.contentShape(Rectangle()) }
                                 .frame(width: 6 * px, height: 8 * px)
                                 .position(x: 15 * px, y: 26 * px)
+                                .tour(.door)
                         }
                     }
                     .sensoryFeedback(trigger: doorStep) { _, step in
@@ -199,7 +201,7 @@ struct HomeView: View {
     }
 
     private var status: HouseStatus {
-        HouseStatus(tasks: tasks, todos: todos, events: events, ratings: Ratings.load(ratingData))
+        HouseStatus(tasks: tasks, todos: todos, events: events, ratings: Ratings.load(ratingData), kept: KeptTask.load(keptData))
     }
 
     /// Loads this fortnight's Calendar events, then has the AI rate anything new.

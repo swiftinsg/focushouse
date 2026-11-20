@@ -35,16 +35,10 @@ struct CalendarView: View {
                 Section(day.formatted(.dateTime.weekday(.wide).day().month())) {
                     ForEach(tasksOnDay) { task in
                         HStack(spacing: 12) {
-                            Button {
-                                withAnimation(.snappy) { CheckIn.shared.toggle(task) }
+                            BouncyCheck(done: task.done, label: task.done ? "Mark not done" : "Mark done") {
+                                CheckIn.shared.toggle(task)
                                 task.plan?.reflow()   // re-arm reminders, as in PlanView
-                            } label: {
-                                Image(systemName: task.done ? "checkmark.circle.fill" : "circle")
-                                    .font(.title2)
-                                    .foregroundStyle(task.done ? .green : .secondary)
                             }
-                            .buttonStyle(.plain)
-                            .sensoryFeedback(.success, trigger: task.done) { !$0 && $1 }
 
                             if let plan = task.plan {
                                 NavigationLink(value: plan) { row(task) }
@@ -62,10 +56,7 @@ struct CalendarView: View {
                     }
                     ForEach(todosOnDay) { todo in
                         HStack(spacing: 12) {
-                            Button { todo.isDone = true } label: {
-                                Image(systemName: "circle").font(.title2).foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
+                            TodoTick(todo: todo, size: .title2)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(todo.name)
                                 Text("Due · not planned yet").font(.caption).foregroundStyle(.orange)

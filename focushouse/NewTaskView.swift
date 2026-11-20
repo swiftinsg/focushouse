@@ -36,7 +36,10 @@ struct NewTaskView: View {
                     }
                 }
 
-                DatePicker("Due date", selection: $dueDate, displayedComponents: .date)
+                // Today or later; an old overdue to-do keeps its date when edited.
+                DatePicker("Due date", selection: $dueDate,
+                           in: min(Calendar.current.startOfDay(for: .now), editing?.dueDate ?? .now)...,
+                           displayedComponents: .date)
 
                 Picker("Priority", selection: $priority) {
                     ForEach(Priority.allCases, id: \.self) { priority in

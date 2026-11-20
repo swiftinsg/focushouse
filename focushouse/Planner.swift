@@ -2,7 +2,7 @@ import Foundation
 import FoundationModels
 
 @Generable struct DraftPlan {
-    @Guide(description: "Short title naming the work, 2 to 5 words, no full stop, e.g. \"Chemistry exam revision\" or \"Tuesday to-dos\"")
+    @Guide(description: "Short title naming the student's own goal or main to-dos in their words, 2 to 5 words, no full stop, e.g. \"Chemistry exam revision\" or \"Maths hw and essay\". Never a generic name like \"Tuesday to-dos\" or \"My plan\"")
     var title: String
     @Guide(description: "One item per thing the user asked for, in the order they should be done", .count(1...15))
     var items: [DraftItem]
@@ -450,6 +450,15 @@ enum Planner {
     }
 
     /// Lowercased words of 3+ letters, minus filler, for loose matching.
+    /// The model's title if it names something the student wrote, else the
+    /// first two items ("Maths hw & Tidy room"), so a plan never ends up "To-dos".
+    static func planTitle(_ model: String, input: String, items: [String]) -> String {
+        let model = model.trimmingCharacters(in: .whitespaces.union(.punctuationCharacters))
+        if !words(model).isDisjoint(with: words(input)) || items.isEmpty { return model }
+        let names = items.prefix(2).map(studentTitle)
+        return names.joined(separator: " & ") + (items.count > 2 ? " +\(items.count - 2)" : "")
+    }
+
     static func words(_ s: String) -> Set<String> {
         Set(s.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
             .filter { $0.count >= 3 && !["the", "and", "for", "with", "due", "tmr"].contains($0) })
