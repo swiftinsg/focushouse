@@ -279,6 +279,7 @@ enum TriggerEvent: String {
         // Protected: Spotlight and Siri can only read it while the phone is unlocked.
         let index = CSSearchableIndex(name: "tasks", protectionClass: .complete)
         try? await index.deleteAppEntities(ofType: TaskEntity.self)
+        try? await CSSearchableIndex.default().deleteAppEntities(ofType: TaskEntity.self)   // ponytail: clears e6ea597's unprotected copy; drop once test phones have run it
         try? await index.indexAppEntities(all)
     }
 
