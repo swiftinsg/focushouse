@@ -1,11 +1,6 @@
 {
   "images": [
     {
-      "filename": "tab.schedule@1x.png",
-      "idiom": "universal",
-      "scale": "1x"
-    },
-    {
       "filename": "tab.schedule@2x.png",
       "idiom": "universal",
       "scale": "2x"

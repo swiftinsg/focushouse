@@ -125,4 +125,14 @@ enum RestHours {
     }
 
     static func name(_ block: Block) -> String { "rest.\(block.start)" }
+
+    /// Screen Time also ends an hour early when monitoring stops (every reschedule),
+    /// which counted the same hour again and again. Only a real end counts: at or
+    /// after the block's end, up to 2 h late.
+    static func endedOnTime(_ activity: String, at now: Date, calendar: Calendar = .current) -> Bool {
+        guard let start = Int(activity.dropFirst("rest.".count)) else { return false }
+        let c = calendar.dateComponents([.hour, .minute], from: now)
+        let late = ((c.hour! * 60 + c.minute!) - (start + 60) % 1440 + 1440) % 1440
+        return late < 120
+    }
 }

@@ -1,11 +1,6 @@
 {
   "images": [
     {
-      "filename": "tab.calendar@1x.png",
-      "idiom": "universal",
-      "scale": "1x"
-    },
-    {
       "filename": "tab.calendar@2x.png",
       "idiom": "universal",
       "scale": "2x"

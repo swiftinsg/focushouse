@@ -1,11 +1,6 @@
 {
   "images": [
     {
-      "filename": "tab.home@1x.png",
-      "idiom": "universal",
-      "scale": "1x"
-    },
-    {
       "filename": "tab.home@2x.png",
       "idiom": "universal",
       "scale": "2x"

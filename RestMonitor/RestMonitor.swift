@@ -20,6 +20,7 @@ final class RestMonitor: DeviceActivityMonitor {
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         let now = Date.now
+        guard RestHours.endedOnTime(activity.rawValue, at: now) else { return }   // stopped early, not a real end
         let used = RestLog.defaults.bool(forKey: usedKey(activity))
         if !used { QuietHours.add(endingAt: now) }   // focus bonus, even during a task
         // Phone used, or phone down during a scheduled task or lesson: not rest, run over.

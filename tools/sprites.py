@@ -13,12 +13,32 @@ import json, os, struct, zlib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, "focushouse", "Assets.xcassets")
 
-# 8x8 tab icons, drawn in one colour and tinted by the tab bar (template images).
+# Tab icons, the student's own drawings (one grid cell = one drawn pixel), in one
+# colour and tinted by the tab bar (template images).
 ICONS = {
-    "tab.home": ["...KK...", "..KKKK..", ".KKKKKK.", "KKKKKKKK", ".K....K.", ".K.KK.K.", ".K.KK.K.", ".KKKKKK."],
-    "tab.schedule": ["..KKKK..", ".K....K.", "K...K..K", "K...K..K", "K...KKKK", "K......K", ".K....K.", "..KKKK.."],
-    "tab.tasks": ["KKKKKKKK", "K......K", "K.....KK", "K....K.K", "KK..K..K", "K.KK...K", "K......K", "KKKKKKKK"],
-    "tab.calendar": ["KKKKKKKK", "K.K..K.K", "KKKKKKKK", "K......K", "K.KK.K.K", "K......K", "K.K.KK.K", "KKKKKKKK"],
+    "tab.home": [
+        ".KKK..........", "..K...........", "..K.KKKKKK....", "..KKKKKKKKK...", "..KKKKKKKKKK..",
+        ".KKKKKKKKKKKK.", "KKKKKKKKKKKKKK", "..K........K..", "..K.K....K.K..", "..K.K....K.K..",
+        "..K...KK...K..", "..K..KKKK..K..", "..K..KKKK..K..", "..KKKKKKKKKK..",
+    ],
+    "tab.schedule": [
+        "......KKKKK......", "....KK.....KK....", "...K.........K...", "..K.....K.....K..",
+        ".K......K......K.", ".K......K......K.", "K.......K.......K", "K.......K.......K",
+        "K.......K.......K", "K......K........K", "K.....K.........K", ".K...K.........K.",
+        ".K..K..........K.", "..K...........K..", "...K.........K...", "....KK.....KK....",
+        "......KKKKK......",
+    ],
+    "tab.calendar": [
+        "...KK...KK...KK...KK.......", "KKKKKKKKKKKKKKKKKKKKKKK....", "K..KK...KK...KK...KK..K....",
+        "K..KK...KK...KK...KK..K....", "K.....................K....", "KKKKKKKKKKKKKKKKKKKKKKK....",
+        "KKKKKKKKKKKKKKKKKKKKKKK....", "KKKKKKKKKKKKKKKKKKKKKKK....", "K.....................K....",
+        "K.....................K....", "K.KKKKK..KKKKK..KKKKK.K....", "K.....................K....",
+        "K.....................K....", "K.KKKKK..KKKKK..KKKKK.K....", "K.....................K..KK",
+        "K..............KKKKKKKKKKK.", "K.KKKKK..KKKKK.K.......KK..", "K..............K......KKK..",
+        "K..............K.....KK.K..", "K..............K.KK.KK..K..", "K..............K..KKK...K..",
+        "KKKKKKKKKKKKKKKK...K....K..", "...............K........K..", "...............K........K..",
+        "...............KKKKKKKKKK..",
+    ],
     "icon.brick": ["KKKKKKKKK", "KRRRKRRRK", "KKKKKKKKK", "KRKRRRKRK", "KKKKKKKKK"],
 }
 ICON_PALETTE = {"K": "#0f3750", "R": "#eef3f8"}
@@ -43,14 +63,15 @@ def png(rows, palette, scale=1):
 
 
 def imageset(name, rows, palette, template=False, scales=(1,)):
-    """Write <name>.imageset. Icons get 1x/2x/3x so the tab bar shows them at 3x their grid size."""
+    """Write <name>.imageset. Tab icons get 2x/3x, scaled to about 26 pt with whole
+    pixels per drawn cell, so they stay crisp."""
     folder = os.path.join(ASSETS, name + ".imageset")
     os.makedirs(folder, exist_ok=True)
     images = []
     for s in scales:
         file = f"{name}@{s}x.png"
         with open(os.path.join(folder, file), "wb") as f:
-            f.write(png(rows, palette, s * (3 if template else 1)))
+            f.write(png(rows, palette, max(1, round(26 * s / max(len(rows), len(rows[0])))) if template else s))
         images.append({"filename": file, "idiom": "universal", "scale": f"{s}x"})
     props = {"template-rendering-intent": "template"} if template else {}
     with open(os.path.join(folder, "Contents.json"), "w") as f:
@@ -73,7 +94,7 @@ def main():
 
     for name, grid in ICONS.items():
         template = name.startswith("tab.")
-        imageset(name, grid, ICON_PALETTE, template=template, scales=(1, 2, 3) if template else (1,))
+        imageset(name, grid, ICON_PALETTE, template=template, scales=(2, 3) if template else (1,))
     print("wrote", ASSETS)
 
 

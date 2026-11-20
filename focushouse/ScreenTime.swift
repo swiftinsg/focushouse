@@ -15,18 +15,25 @@ import Foundation
     static func enable() async -> Bool {
         do { try await AuthorizationCenter.shared.requestAuthorization(for: .individual) }
         catch { return false }
-        schedule()
+        schedule(force: true)
         return true
     }
 
-    static func disable() { DeviceActivityCenter().stopMonitoring() }
+    static func disable() {
+        DeviceActivityCenter().stopMonitoring()
+        UserDefaults.standard.removeObject(forKey: "restScheduled")
+    }
 
     /// (Re)starts one daily-repeating activity per waking hour, so a changed
     /// routine is picked up. An event with no apps chosen covers all phone use.
-    static func schedule() {
+    /// Only when the routine changed: restarting mid-hour forgets phone use so far.
+    static func schedule(force: Bool = false) {
+        let routine = Routine.current
+        let key = "\(routine.wake)-\(routine.bed)"
+        guard force || UserDefaults.standard.string(forKey: "restScheduled") != key else { return }
+        UserDefaults.standard.set(key, forKey: "restScheduled")
         let center = DeviceActivityCenter()
         center.stopMonitoring()
-        let routine = Routine.current
         for block in RestHours.blocks(wake: routine.wake, bed: routine.bed) {
             let time = { (m: Int) in DateComponents(hour: m / 60 % 24, minute: m % 60) }
             try? center.startMonitoring(

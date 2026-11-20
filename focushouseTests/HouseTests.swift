@@ -159,6 +159,15 @@ import Testing
         #expect(run.hours == 1 && log.seconds(on: now) == 4 * 3600)
     }
 
+    @Test func screenTimeIgnoresHoursStoppedEarly() {
+        let at = { (h: Int, m: Int) in daysAgo(0, hour: h).addingTimeInterval(TimeInterval(m * 60)) }
+        #expect(RestHours.endedOnTime("rest.840", at: at(15, 0)))       // 14:00–15:00 ends on time
+        #expect(RestHours.endedOnTime("rest.840", at: at(15, 40)))      // a little late
+        #expect(!RestHours.endedOnTime("rest.840", at: at(14, 20)))     // stopped by a reschedule
+        #expect(RestHours.endedOnTime("rest.1380", at: at(0, 5)))       // 23:00–24:00 across midnight
+        #expect(!RestHours.endedOnTime("rest.1380", at: at(23, 30)))
+    }
+
     @Test func restBreakSettingNeverUnderFifteenMinutes() {
         defer { RestLog.defaults.removeObject(forKey: "restMinBreak") }
         RestLog.defaults.set(5, forKey: "restMinBreak")
