@@ -135,6 +135,13 @@ extension House {
 
     static func level(earned: Int) -> Int { levelBricks.lastIndex { earned >= $0 } ?? 0 }
 
+    /// Home's house meter: how far to the next level (0–1), full at the top.
+    static func progress(earned: Int) -> Double {
+        let l = level(earned: earned)
+        guard l + 1 < levelBricks.count else { return 1 }
+        return Double(earned - levelBricks[l]) / Double(levelBricks[l + 1] - levelBricks[l])
+    }
+
     /// Bricks still needed for the next level, or nil at the top.
     static func toNextLevel(earned: Int) -> Int? {
         let next = level(earned: earned) + 1

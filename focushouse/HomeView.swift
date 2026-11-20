@@ -86,8 +86,9 @@ struct HomeView: View {
                         .tour(.rest)
                     BrickMeter(title: "House: \(House.levelNames[level])",
                                detail: House.toNextLevel(earned: status.earned).map { "\($0) bricks to fix up" } ?? "All fixed up",
-                               filled: level * 2,
-                               color: .brick)
+                               filled: 0,
+                               color: .brick,
+                               fraction: House.progress(earned: status.earned))
 
                     if state != .calm && state != .resting { restCard }
                     if let next { nextCard(next, status).tour(.next) }

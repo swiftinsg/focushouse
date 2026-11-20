@@ -189,7 +189,7 @@ struct BrickMeter: View {
     }
 
     private func grow(_ to: Double) {
-        withAnimation(reduceMotion ? nil : .spring(duration: 0.6, bounce: 0.3)) { grown = min(max(to, 0), 1) }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.5)) { grown = min(max(to, 0), 1) }
     }
 }
 

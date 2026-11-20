@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import focushouse
 
@@ -24,6 +25,24 @@ import Testing
         #expect(status.earned > 0)
         #expect(status.streak == 1)
         #expect(HouseStatus(tasks: [], todos: [], events: [], ratings: [:], kept: [], now: now).earned == 0)
+    }
+
+    /// End to end: a new task, ticked and answered, earns bricks; a new to-do too.
+    @MainActor @Test func newTaskTickedAndAnsweredEarnsBricks() throws {
+        let container = try ModelContainer(for: Plan.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let task = PlanTask(title: "Maths homework", category: "homework", minutes: 60, day: 1, order: 0)
+        container.mainContext.insert(task)
+        task.start = Date.now.addingTimeInterval(-3600)
+        let earned = { HouseStatus(tasks: [task], todos: [], events: [], ratings: [:], kept: [], quiet: QuietHours()).earned }
+        #expect(earned() == 0)
+        CheckIn.shared.tick(task)
+        #expect(earned() == 0)   // waiting for "How did it go?"
+        CheckIn.shared.save(task, minutes: 60, feeling: 3, note: "")
+        #expect(earned() == 6)   // normal: 1 per 10 min
+
+        let todo = TodoItem(name: "Pack bag", selectedTag: "", dueDate: .now)
+        todo.isDone = true; todo.doneAt = .now
+        #expect(HouseStatus(tasks: [], todos: [todo], events: [], ratings: [:], kept: [], quiet: QuietHours()).earned == House.todoBricks)
     }
 
     @Test func streakCountsStressfulDaysInARow() {
@@ -190,6 +209,8 @@ import Testing
         #expect(House.level(earned: 599) == 4 && House.toNextLevel(earned: 599) == 1)
         #expect(House.level(earned: 5000) == 5 && House.toNextLevel(earned: 5000) == nil)
         #expect(House.levelNames.count == House.levelBricks.count)
+        #expect(House.progress(earned: 0) == 0 && House.progress(earned: 6) == 0.15)   // moves with each task
+        #expect(House.progress(earned: 40) == 0 && House.progress(earned: 5000) == 1)
     }
 
     @Test func restHoursAreHourlyBlocksCappedAtTwenty() {
