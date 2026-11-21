@@ -227,6 +227,90 @@ struct PixelNumber: View {
     }
 }
 
+/// The house sky through the day. Fixed local times rather than real
+/// sunrise/sunset: a game sky that's easy to reason about and test.
+enum SkyClock {
+    enum Phase: String, Equatable, CaseIterable { case night, dawn, day, dusk }
+
+    /// night until 6, dawn 6–7, day 7–18, dusk 18–19:30, night again after 19:30.
+    static func phase(at date: Date, calendar: Calendar = .current) -> Phase {
+        let m = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
+        switch m {
+        case 6 * 60..<7 * 60: return .dawn
+        case 7 * 60..<18 * 60: return .day
+        case 18 * 60..<19 * 60 + 30: return .dusk
+        default: return .night
+        }
+    }
+
+    /// 0 at night, 1 in full day, eased through the dawn and dusk hours so the
+    /// tint never snaps when a phase boundary is crossed.
+    static func daylight(at date: Date, calendar: Calendar = .current) -> Double {
+        let m = Double(calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date))
+        func ease(_ a: Double, _ b: Double) -> Double {
+            let t = min(1, max(0, (m - a) / (b - a)))
+            return t * t * (3 - 2 * t)
+        }
+        switch phase(at: date, calendar: calendar) {
+        case .night: return 0
+        case .dawn: return ease(6 * 60, 7 * 60)
+        case .day: return 1
+        case .dusk: return 1 - ease(18 * 60, 19 * 60 + 30)
+        }
+    }
+
+    /// 0 in full day, 1 at night. Resting always keeps its night look.
+    static func nightAmount(state: House.State, at date: Date, calendar: Calendar = .current) -> Double {
+        state == .resting ? 1 : 1 - daylight(at: date, calendar: calendar)
+    }
+
+    fileprivate typealias RGB = (r: Double, g: Double, b: Double)
+    private static func mix(_ a: RGB, _ b: RGB, _ t: Double) -> RGB {
+        (a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t)
+    }
+
+    private static func dayRGB(_ s: House.State) -> RGB {
+        switch s {
+        case .calm: (0.80, 0.91, 1.00)
+        case .stressed: (0.89, 0.91, 0.93)
+        case .overloaded: (0.73, 0.76, 0.81)
+        case .crumbling: (0.60, 0.64, 0.70)
+        case .resting: (0.18, 0.21, 0.35)
+        }
+    }
+
+    private static func nightRGB(_ s: House.State) -> RGB {
+        switch s {
+        case .calm: (0.06, 0.09, 0.22)
+        case .stressed: (0.09, 0.11, 0.21)
+        case .overloaded: (0.31, 0.34, 0.42)   // storm grey, just darker
+        case .crumbling: (0.23, 0.26, 0.34)
+        case .resting: (0.18, 0.21, 0.35)
+        }
+    }
+
+    /// The sky colour behind a house state at a time of day: blend night↔day,
+    /// then a warm peach at dawn and orange-pink at dusk.
+    fileprivate static func skyRGB(state: House.State, at date: Date, calendar: Calendar = .current) -> RGB {
+        if state == .resting { return nightRGB(state) }
+        let c = mix(nightRGB(state), dayRGB(state), daylight(at: date, calendar: calendar))
+        let m = Double(calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date))
+        switch phase(at: date, calendar: calendar) {
+        case .dawn: return mix(c, (1.00, 0.76, 0.60), 0.55 * max(0, 1 - abs(m - 390) / 30))
+        case .dusk: return mix(c, (0.97, 0.55, 0.52), 0.50 * max(0, 1 - abs(m - 1125) / 45))
+        case .night, .day: return c
+        }
+    }
+}
+
+extension Color {
+    /// The clock-driven sky; the static `House.State.sky` stays for the widgets.
+    static func sky(for state: House.State, at date: Date, calendar: Calendar = .current) -> Color {
+        let c = SkyClock.skyRGB(state: state, at: date, calendar: calendar)
+        return Color(red: c.r, green: c.g, blue: c.b)
+    }
+}
+
 extension House.State {
     var title: String { rawValue.capitalized }
 
