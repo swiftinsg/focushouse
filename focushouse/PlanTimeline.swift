@@ -3,10 +3,12 @@ import SwiftData
 
 /// A day-by-day timeline of a plan. Press and hold a task, then drag it to a new
 /// time (snaps to 5 minutes). It starts from there, and the student is asked
-/// whether to pin it; nothing is pinned without asking.
+/// whether to pin it; nothing is pinned without asking. Swipe a task left to delete it.
 struct PlanTimeline: View {
     @Bindable var plan: Plan
-    @State private var day = Calendar.current.startOfDay(for: .now)
+    @Binding var day: Date   // PlanView's + adds to this day
+    @State private var swiped: PersistentIdentifier?   // swiped left: Delete showing
+    @State private var swipeX: CGFloat = 0
     @State private var dragging: PersistentIdentifier?
     @State private var dragOffset: CGFloat = 0
     @State private var scroll = ScrollPosition(edge: .top)
@@ -56,7 +58,7 @@ struct PlanTimeline: View {
             day = days.contains(day) ? day : (days.first ?? day)
             jumpToFirstTask()
         }
-        .onChange(of: day) { jumpToFirstTask() }
+        .onChange(of: day) { swiped = nil; jumpToFirstTask() }
         .sensoryFeedback(.selection, trigger: dragging)
         .confirmationDialog(askPin.map { "Pin “\($0.title)” to \($0.start?.formatted(date: .omitted, time: .shortened) ?? "")?" } ?? "",
                             isPresented: Binding(get: { askPin != nil }, set: { if !$0 { askPin = nil } }),
@@ -251,9 +253,22 @@ struct PlanTimeline: View {
         .scaleEffect(isDragging ? 1.02 : 1)
         .contentShape(.contextMenuPreview, Rectangle())
         .contextMenu { menu(for: task) }
+        .offset(x: swiped == task.persistentModelID ? swipeX : 0)
+        .background(alignment: .trailing) {
+            if swiped == task.persistentModelID {
+                Button("Delete", systemImage: "trash", role: .destructive) { delete(task) }
+                    .labelStyle(.iconOnly)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: max(-swipeX, 0), height: frame.height)
+                    .background(.red)
+            }
+        }
         .gesture(task.done ? nil : move(task))
+        .simultaneousGesture(swipe(task))
         .accessibilityElement(children: .combine)
         .accessibilityHint("Press and hold, then drag to change the time")
+        .accessibilityAction(named: "Delete") { delete(task) }
         .padding(.leading, gutter)
         .offset(y: frame.y + top + (isDragging ? dragOffset : 0))
         .zIndex(isDragging ? 1 : 0)
@@ -278,6 +293,37 @@ struct PlanTimeline: View {
                 dragging = nil
                 dragOffset = 0
             }
+    }
+
+    /// Swipe left to show Delete (stays open at `swipeOpen`); swipe far to delete
+    /// straight away; swipe right or tap another task to close.
+    private func swipe(_ task: PlanTask) -> some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onChanged { value in
+                guard dragging == nil, abs(value.translation.width) > abs(value.translation.height) else { return }
+                let base: CGFloat = swiped == task.persistentModelID && swipeX < 0 ? -swipeOpen : 0
+                if swiped != task.persistentModelID { swiped = task.persistentModelID }
+                swipeX = min(0, base + value.translation.width)
+            }
+            .onEnded { _ in
+                guard swiped == task.persistentModelID else { return }
+                withAnimation(.snappy) {
+                    if swipeX < -swipeDelete { delete(task) }
+                    else if swipeX < -swipeOpen / 2 { swipeX = -swipeOpen }
+                    else { swiped = nil; swipeX = 0 }
+                }
+            }
+    }
+
+    private let swipeOpen: CGFloat = 80
+    private let swipeDelete: CGFloat = 220
+
+    private func delete(_ task: PlanTask) {
+        withAnimation(.snappy) {
+            swiped = nil
+            swipeX = 0
+            plan.delete([task])
+        }
     }
 
     private func snapped(_ offset: CGFloat) -> Int { Int((offset / perMinute / 5).rounded()) * 5 }
@@ -312,5 +358,6 @@ struct PlanTimeline: View {
                 plan.reflow()
             }
         }
+        Button("Delete", systemImage: "trash", role: .destructive) { delete(task) }
     }
 }

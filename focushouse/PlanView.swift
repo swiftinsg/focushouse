@@ -10,6 +10,7 @@ struct PlanView: View {
     @AppStorage("showTimeline") private var showTimeline = false
     @State private var editing: SubtaskEdit?
     @State private var confirmDelete = false
+    @State private var timelineDay = Calendar.current.startOfDay(for: .now)   // the day the timeline shows
     @Environment(\.dismiss) private var dismiss
 
     /// What the subtask editor sheet opens with.
@@ -21,7 +22,7 @@ struct PlanView: View {
 
     var body: some View {
         Group {
-            if showTimeline { PlanTimeline(plan: plan) } else { list }
+            if showTimeline { PlanTimeline(plan: plan, day: $timelineDay) } else { list }
         }
         .overlay {
             // The list shows its own empty row, so this never covers the goal section.
@@ -351,8 +352,10 @@ struct PlanView: View {
         plan.reflow()
     }
 
-    /// The toolbar's +: today, or the plan's nearest day when today is outside it.
+    /// The toolbar's +: the day the timeline shows; in the list, today, or the
+    /// plan's nearest day when today is outside it.
     private func addTask() {
+        if showTimeline { plan.addTask(on: timelineDay); return }
         let cal = Calendar.current
         let first = cal.startOfDay(for: plan.start)
         let last = cal.date(byAdding: .day, value: max(plan.days, 1) - 1, to: first) ?? first
