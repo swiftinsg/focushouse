@@ -199,7 +199,7 @@ struct HomeView: View {
             .accessibilityLabel("Mark \(task.title) done")
             VStack(alignment: .leading, spacing: 2) {
                 Text("Next: \(task.title)").font(.subheadline.weight(.semibold))
-                let earns = House.bricks(minutes: task.estimate ?? task.minutes, actual: nil, status.rating(task.title, priority: task.priority, category: task.category).effort, focused: false)
+                let earns = House.bricks(minutes: task.estimate ?? task.minutes, actual: nil, status.rating(task.title, category: task.category).effort, focused: false)
                 Text("\(task.start!.formatted(date: .omitted, time: .shortened))–\(task.end!.formatted(date: .omitted, time: .shortened))" + (earns > 0 ? " · +\(earns) bricks" : ""))
                     .font(.footnote).foregroundStyle(.secondary)
             }

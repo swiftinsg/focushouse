@@ -47,6 +47,8 @@ import SwiftData
         task.reflectedAt = now
         task.checkIn = PlanTask.CheckInState.answered.rawValue
         queue.removeAll { $0 === task }
+        let history = Reflections.history(in: task.modelContext).compactMap(Ratings.Check.init)
+        if let check = Ratings.Check(task) { Task { await Ratings.reflect(check, history: history) } }   // how it felt moves its stress a step
     }
 
     /// Closed without answering: asked again next launch, no bricks until then.
@@ -402,17 +404,17 @@ extension HouseStatus {
     func weekItems(tasks: [PlanTask], todos: [TodoItem], events: [(title: String, start: Date, minutes: Int)]) -> [WeekStats.Item] {
         let planned: [WeekStats.Item] = tasks.filter { $0.start != nil && $0.category != Plan.freeTime }.map { t in
             WeekStats.Item(title: t.parent.isEmpty ? t.title : t.parent, day: t.start!, minutes: t.minutes,
-                           stress: House.stress(minutes: t.minutes, rating(t.title, priority: t.priority, category: t.category)),
+                           stress: House.stress(minutes: t.minutes, rating(t.title, category: t.category)),
                            done: t.done, feeling: t.feeling, estimate: t.estimate, actual: t.actual, doneAt: t.doneAt)
         }
         let listed: [WeekStats.Item] = todos.map { t in
             WeekStats.Item(title: t.name, day: t.dueDate, minutes: House.todoMinutes,
-                           stress: House.stress(minutes: House.todoMinutes, rating(t.name, priority: t.priority.level)), done: t.isDone,
+                           stress: House.stress(minutes: House.todoMinutes, rating(t.name)), done: t.isDone,
                            doneAt: t.doneAt)
         }
         let attended: [WeekStats.Item] = events.map { e in
             WeekStats.Item(title: e.title, day: e.start, minutes: e.minutes,
-                           stress: House.stress(minutes: e.minutes, rating(e.title, priority: 1)), isEvent: true)
+                           stress: House.stress(minutes: e.minutes, rating(e.title)), isEvent: true)
         }
         return planned + listed + attended
     }

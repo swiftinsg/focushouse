@@ -25,9 +25,9 @@ struct HouseCheckIntent: AppIntent {
         let state = House.state(streak: status.streak, log: RestLog.load(RestLog.defaults.data(forKey: "restLog") ?? Data()), now: now)
         let cal = Calendar.current
         let today = tasks.filter { $0.start.map { cal.isDate($0, inSameDayAs: now) } ?? false }
-            .map { SiriContext.Item(title: $0.title, start: $0.start, score: status.rating($0.title, priority: $0.priority, category: $0.category).score, done: $0.done) }
+            .map { SiriContext.Item(title: $0.title, start: $0.start, score: status.rating($0.title, category: $0.category).score, done: $0.done) }
             + todos.filter { cal.isDate($0.dueDate, inSameDayAs: now) }
-            .map { SiriContext.Item(title: $0.name, start: nil, score: status.rating($0.name, priority: $0.priority.level).score, done: $0.isDone) }
+            .map { SiriContext.Item(title: $0.name, start: nil, score: status.rating($0.name).score, done: $0.isDone) }
         let text = SiriContext.summary(state: state, streak: status.streak, items: today, now: now)
         return .result(dialog: "\(text)") {
             VStack(spacing: 8) {
@@ -243,12 +243,12 @@ enum TriggerEvent: String {
 
     static func entity(_ t: PlanTask, _ status: HouseStatus) -> TaskEntity {
         make(id: "task-" + t.key, title: t.title, due: t.start, done: t.done, doneAt: t.doneAt, minutes: t.minutes,
-             rating: status.rating(t.title, priority: t.priority, category: t.category), list: .plans)
+             rating: status.rating(t.title, category: t.category), list: .plans)
     }
 
     static func entity(_ t: TodoItem, _ status: HouseStatus) -> TaskEntity {
         make(id: "todo-" + todoID(t), title: t.name, due: t.dueDate, done: t.isDone, doneAt: t.doneAt, minutes: House.todoMinutes,
-             rating: status.rating(t.name, priority: t.priority.level), list: .todos)
+             rating: status.rating(t.name), list: .todos)
     }
 
     /// To-dos have no id of their own: their SwiftData id, as text.

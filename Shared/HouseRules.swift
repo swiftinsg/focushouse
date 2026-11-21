@@ -3,22 +3,31 @@ import Foundation
 /// How demanding something is, from its 1–10 score.
 enum Effort: Int, Codable, CaseIterable { case easy, normal, hard, intense }
 
-/// The AI scores each task and Calendar event once from its title (1–10). The
-/// score is then scaled by the student's own pace, so ranges decide the effort:
-/// 1–3 easy, 4–6 normal, 7–8 hard, 9–10 intense. Without Apple Intelligence,
-/// priority stands in.
+/// How stressful something is, 1–10, saved by title. The student's own pre-task
+/// score (`mine`) is the baseline; otherwise the AI's score from the title. After
+/// check-ins, `nudge` moves it one step either way from how it really felt.
+/// Ranges decide the effort: 1–3 easy, 4–6 normal, 7–8 hard, 9–10 intense.
+/// Priority is a different thing and never feeds stress.
 struct Rating: Codable, Equatable {
     var score: Int
     /// Can't be skipped (exams, lessons, set deadlines): counts half toward stress.
     var compulsory = false
+    /// The student's own score from the stress slider, set before the task.
+    var mine: Int?
+    /// −1, 0 or +1 from check-ins (the AI's judgement, or plain code without it).
+    var nudge: Int?
 
-    init(score: Int, compulsory: Bool = false) {
+    init(score: Int, compulsory: Bool = false, mine: Int? = nil, nudge: Int? = nil) {
         self.score = min(10, max(1, score))
         self.compulsory = compulsory
+        self.mine = mine
+        self.nudge = nudge
     }
 
-    /// Stand-in from priority (0 high, 1 normal, 2 low) until, or without, the AI.
-    init(priority: Int) { self.init(score: priority == 0 ? 8 : priority == 2 ? 2 : 5) }
+    /// The score before reflections: the student's, else the AI's.
+    var base: Int { mine ?? score }
+    /// What counts: the base moved by the check-ins' nudge.
+    var current: Int { min(10, max(1, base + (nudge ?? 0))) }
 
     var effort: Effort { score <= 3 ? .easy : score <= 6 ? .normal : score <= 8 ? .hard : .intense }
 

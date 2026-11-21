@@ -11,17 +11,18 @@ import Testing
     }
 
     @MainActor @Test func heavyEventsAreNeverLight() {
-        let status = HouseStatus(tasks: [], todos: [], events: [], ratings: [Ratings.key("Grandpa's funeral"): Rating(score: 2)])
-        #expect(status.rating("Grandpa's funeral", priority: 1).effort == .hard)
-        #expect(status.rating("Hospital visit", priority: 2).effort == .hard)   // unrated, no AI
-        #expect(status.rating("Lunch with friends", priority: 2).effort == .easy)
+        let status = HouseStatus(tasks: [], todos: [], events: [], ratings: [Ratings.key("Grandpa's funeral"): Rating(score: 2),
+                                                                             Ratings.key("Lunch with friends"): Rating(score: 2)])
+        #expect(status.rating("Grandpa's funeral").effort == .hard)
+        #expect(status.rating("Hospital visit").effort == .hard)   // unrated, no AI
+        #expect(status.rating("Lunch with friends").effort == .easy)
         #expect(!Ratings.heavy("wake up early"))
     }
 
     @MainActor @Test func deletedDoneTasksKeepBricksAndStress() {
         let kept = [KeptTask(title: "Maths homework", category: "homework", priority: 0, minutes: 200,
                              estimate: 60, start: daysAgo(0), day: daysAgo(0), earns: true)]
-        let status = HouseStatus(tasks: [], todos: [], events: [], ratings: [:], kept: kept, now: now)
+        let status = HouseStatus(tasks: [], todos: [], events: [], ratings: [Ratings.key("Maths homework"): Rating(score: 8)], kept: kept, now: now)
         #expect(status.earned > 0)
         #expect(status.streak == 1)
         #expect(HouseStatus(tasks: [], todos: [], events: [], ratings: [:], kept: [], now: now).earned == 0)
@@ -70,7 +71,23 @@ import Testing
         #expect(House.stress(minutes: 60, Rating(score: 5)) == 30)
         #expect(House.stress(minutes: 120, Rating(score: 10)) == 180)
         #expect(House.stress(minutes: 120, Rating(score: 10, compulsory: true)) == 90)   // exam
-        #expect(Rating(priority: 0).effort == .hard && Rating(priority: 2).effort == .easy)
+    }
+
+    /// The student's pre-task score is the baseline, check-ins move it one step,
+    /// and with no score stress comes from how it felt, never from priority.
+    @MainActor @Test func preTaskStressAndReflections() {
+        let ratings = [Ratings.key("Essay"): Rating(score: 3, mine: 7, nudge: 1),
+                       Ratings.key("Quiz"): Rating(score: 6, nudge: -1)]
+        let felt = PlanTask(title: "Piano", category: "practice", minutes: 30, day: 1, order: 0)
+        felt.feeling = 1   // drained
+        let status = HouseStatus(tasks: [felt], todos: [], events: [], ratings: ratings, kept: [])
+        #expect(status.rating("Essay", category: "homework").score == 8)   // the student's 7, +1
+        #expect(status.rating("Quiz").score == 5)
+        #expect(status.rating("Piano").score == 9)                          // felt drained
+        #expect(status.rating("Something new").score == 5)                  // nothing known
+        #expect(Ratings.plainNudge(base: 5, feeling: 1) == 1 && Ratings.plainNudge(base: 5, feeling: 3) == 0
+                && Ratings.plainNudge(base: 8, feeling: 5) == -1)
+        #expect(Rating(score: 10, nudge: 1).current == 10 && Rating(score: 1, nudge: -1).current == 1)
     }
 
     @Test func scoreRangesAndPersonalPace() {

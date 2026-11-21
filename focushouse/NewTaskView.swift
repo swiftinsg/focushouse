@@ -20,6 +20,7 @@ struct NewTaskView: View {
     let tags = ["Work", "Hobbies", "Others"]
     @State private var dueDate = Date.now
     @State private var priority: Priority = .medium
+    @State private var stress: Int?   // nil until the slider is moved
 
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -47,6 +48,8 @@ struct NewTaskView: View {
                             .tag(priority)
                     }
                 }
+
+                StressSlider(score: $stress, fallback: Ratings.score(trimmedName) ?? 5)
             }
             .pixelTitle(editing == nil ? "New to-do" : "Edit to-do")
             .onAppear {
@@ -73,6 +76,7 @@ struct NewTaskView: View {
     }
 
     func save() {
+        if let stress { Ratings.set([trimmedName], score: stress) }
         if let editing {
             editing.name = trimmedName
             editing.selectedTag = selectedTag
@@ -90,6 +94,23 @@ struct NewTaskView: View {
 
         modelContext.insert(task)
         dismiss()
+    }
+}
+
+/// The student's own pre-task stress, 1–10: the baseline check-ins nudge from.
+/// Separate from priority. Shows the saved score until moved; `score` stays nil
+/// so an untouched slider doesn't stop the AI rating it.
+struct StressSlider: View {
+    @Binding var score: Int?
+    let fallback: Int
+
+    var body: some View {
+        let value = score ?? fallback
+        VStack(alignment: .leading) {
+            LabeledContent("Stress", value: "\(value)/10 · \(Rating(score: value).effort)")
+            Slider(value: Binding { Double(value) } set: { score = Int($0) }, in: 1...10, step: 1)
+                .accessibilityValue("\(value) out of 10")
+        }
     }
 }
 

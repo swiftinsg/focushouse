@@ -9,6 +9,8 @@ struct SubtaskEditor: View {
     @State var subtasks: [PlanTask]  // current subtasks (or the single plain task)
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focused: PersistentIdentifier?
+    @State private var stress: Int?   // nil until the slider is moved
+    @AppStorage("ratings") private var ratingData = Data()
 
     var body: some View {
         NavigationStack {
@@ -16,6 +18,9 @@ struct SubtaskEditor: View {
                 Section(pixel: "Task") {
                     TextField("Task name", text: $name)
                         .font(.headline)
+                    // The hardest subtask's score, so it's never below what the student set;
+                    // it moves as the AI rates subtasks they add or rename.
+                    StressSlider(score: $stress, fallback: subtasks.compactMap { Ratings.score($0.title, in: Ratings.load(ratingData)) }.max() ?? 5)
                 }
 
                 Section {
@@ -47,6 +52,12 @@ struct SubtaskEditor: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .onDisappear(perform: save)   // Done and swipe-to-close both save
+        .task(id: subtasks.map(\.title)) {
+            // Rate new or renamed subtasks once typing pauses.
+            try? await Task.sleep(for: .seconds(1))
+            let rated = Ratings.load(ratingData)
+            await Ratings.rate(subtasks.map(\.title).filter { !$0.isEmpty && rated[Ratings.key($0)] == nil })
+        }
     }
 
     private func add() {
@@ -64,6 +75,7 @@ struct SubtaskEditor: View {
         list.insert(contentsOf: subtasks, at: min(at, list.count))
         for (i, task) in list.enumerated() { task.order = i }
         plan.saveSubtasks(subtasks, name: name)
+        if let stress { Ratings.set(subtasks.map(\.title), score: stress) }
     }
 }
 
