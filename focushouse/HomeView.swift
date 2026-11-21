@@ -87,7 +87,7 @@ struct HomeView: View {
                     BrickMeter(title: "House: \(House.levelNames[level])",
                                detail: House.toNextLevel(earned: status.earned).map { "\($0) bricks to fix up" } ?? "All fixed up",
                                filled: 0,
-                               color: .brick,
+                               color: .navy,
                                fraction: House.progress(earned: status.earned))
 
                     if state != .calm && state != .resting { restCard }

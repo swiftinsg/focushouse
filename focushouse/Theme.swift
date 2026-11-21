@@ -26,8 +26,6 @@ extension Color {
     static let paper = Color(light: 0xFFF3DC, dark: 0x1C1826)
     static let card = Color(light: 0xFFFFFF, dark: 0x2A2436)
     static let track = Color(light: 0xEDE6DA, dark: 0x3A3348)
-    /// Brick face: white-blue, like the house walls. Mortar/tint is `navy`.
-    static let brick = Color(light: 0xEEF3F8, dark: 0xDCE6EF)
     static let navy = Color(light: 0x1E5E81, dark: 0x7FB2D6)
     /// Warnings (stressful days, damaged house).
     static let alarm = Color(light: 0xB34A34, dark: 0xD9664D)
