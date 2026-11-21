@@ -120,6 +120,12 @@ enum House {
         return focused ? b * 3 / 2 : b
     }
 
+    /// Without Apple Intelligence: bricks are the task's stress score, 1 easy to
+    /// 10 most stressful, whatever its length; ×1.5 with the phone down.
+    static func bricks(score: Int, focused: Bool) -> Int {
+        focused ? score * 3 / 2 : score
+    }
+
     /// One day's bricks: full rate up to `fullRateBricks`, half after, at most `dailyBrickCap`.
     static func dayTotal(_ bricks: Int) -> Int {
         if Tester.on { return bricks }   // TESTER: no half rate or daily cap

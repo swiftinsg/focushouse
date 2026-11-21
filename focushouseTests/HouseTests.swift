@@ -34,12 +34,13 @@ import Testing
         let task = PlanTask(title: "Maths homework", category: "homework", minutes: 60, day: 1, order: 0)
         container.mainContext.insert(task)
         task.start = Date.now.addingTimeInterval(-3600)
-        let earned = { HouseStatus(tasks: [task], todos: [], events: [], ratings: [:], kept: [], quiet: QuietHours()).earned }
-        #expect(earned() == 0)
+        let earned = { (ai: Bool) in HouseStatus(tasks: [task], todos: [], events: [], ratings: [:], kept: [], quiet: QuietHours(), ai: ai).earned }
+        #expect(earned(true) == 0)
         CheckIn.shared.tick(task)
-        #expect(earned() == 0)   // waiting for "How did it go?"
+        #expect(earned(true) == 0)   // waiting for "How did it go?"
         CheckIn.shared.save(task, minutes: 60, feeling: 3, note: "")
-        #expect(earned() == 6)   // normal: 1 per 10 min
+        #expect(earned(true) == 6)   // normal: 1 per 10 min
+        #expect(earned(false) == 5)  // no Apple Intelligence: its stress score (felt OK → 5)
 
         let todo = TodoItem(name: "Pack bag", selectedTag: "", dueDate: .now)
         todo.isDone = true; todo.doneAt = .now
@@ -104,6 +105,7 @@ import Testing
         #expect(House.bricks(minutes: 40, .intense) == 8)
         #expect(House.bricks(minutes: 5, .normal) == 1)
         #expect(House.bricks(minutes: 90, .easy) == 0)
+        #expect(House.bricks(score: 1, focused: false) == 1 && House.bricks(score: 10, focused: false) == 10)   // no Apple Intelligence
         let earned = Array(repeating: (daysAgo(0), 30), count: 5) + [(daysAgo(1), 7)]
         #expect(House.total(earned) == 107)   // today's 150 capped at 100
     }

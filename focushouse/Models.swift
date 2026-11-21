@@ -18,6 +18,8 @@ enum PlanMode: String, CaseIterable {
     var freeUntil: Int?
     /// Minutes between tasks: 10 when the student's check-ins say yesterday or today was hard.
     var breakMinutes = 0
+    /// New Plan's stress slider, for tasks the student types in themselves.
+    var stress: Int?
     @Relationship(deleteRule: .cascade, inverse: \PlanTask.plan) var tasks: [PlanTask] = []
 
     init(title: String, mode: PlanMode, input: String, days: Int, start: Date) {

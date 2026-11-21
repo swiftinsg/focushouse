@@ -223,11 +223,20 @@ extension KeptTask {
     /// with no score yet.
     private let feltTitle: [String: Int]
     private let feltCategory: [String: Int]
+    /// Apple Intelligence on: bricks by time × effort; off: by stress score.
+    private let ai: Bool
+
+    /// A finished plan task's bricks before the photo bonus.
+    func bricks(minutes: Int, actual: Int?, _ r: Rating, focused: Bool) -> Int {
+        ai ? House.bricks(minutes: minutes, actual: actual, r.effort, focused: focused)
+           : House.bricks(score: r.score, focused: focused)
+    }
 
     init(tasks: [PlanTask], todos: [TodoItem], events: [(title: String, start: Date, minutes: Int)],
          ratings: [String: Rating], kept: [KeptTask] = KeptTask.load(UserDefaults.standard.data(forKey: KeptTask.key) ?? Data()),
-         quiet: QuietHours = .load(), now: Date = .now) {
+         quiet: QuietHours = .load(), now: Date = .now, ai: Bool = Planner.isAvailable) {
         self.ratings = ratings
+        self.ai = ai
         let answered = tasks.filter { $0.feeling != nil }
         feltTitle = Dictionary(grouping: answered) { Ratings.key($0.title) }.compactMapValues { Ratings.felt($0.compactMap(\.feeling)) }
         feltCategory = Dictionary(grouping: answered, by: \.category).filter { $0.value.count >= Reflections.minAnswers }
@@ -242,7 +251,7 @@ extension KeptTask {
             if let start = t.start { load.append((start, House.stress(minutes: t.minutes, r))) }
             if t.earns, let day = t.day {
                 let focused = t.start.map { quiet.covers(start: $0, minutes: t.minutes) } ?? false
-                let earned = House.bricks(minutes: t.estimate ?? t.minutes, actual: t.actual, r.effort, focused: focused)
+                let earned = self.bricks(minutes: t.estimate ?? t.minutes, actual: t.actual, r, focused: focused)
                 bricks.append((day, t.photo == true ? Proof.bonus(earned) : earned))
             }
         }

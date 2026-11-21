@@ -459,6 +459,8 @@ private struct TaskRow: View {
                             if editingTitle { titleBefore = task.title }
                             else if task.title.trimmingCharacters(in: .whitespaces).isEmpty {
                                 task.title = titleBefore.isEmpty ? "New task" : titleBefore
+                            } else if let stress = task.plan?.stress, task.title != "New task", Ratings.score(task.title) == nil {
+                                Ratings.set([task.title], score: stress)   // the plan's slider, for typed-in tasks
                             }
                         }
                         .strikethrough(task.done)
