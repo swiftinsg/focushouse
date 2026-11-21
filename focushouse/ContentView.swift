@@ -13,6 +13,9 @@ struct ContentView: View {
     @State private var showNew = false
     @AppStorage("seenCalendarTip") private var seenCalendarTip = false
     @State private var calendarError: String?
+    @State private var seenOpen: Set<PersistentIdentifier> = []   // plans that were unfinished when last shown
+    @State private var leaving: Set<PersistentIdentifier> = []    // finished: ring pops, then the row goes
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -46,10 +49,11 @@ struct ContentView: View {
                     }
                 }
                 Section {
-                ForEach(plans) { plan in
+                ForEach(visiblePlans) { plan in
                     NavigationLink(value: plan) {
                         HStack(spacing: 14) {
                             ProgressRing(done: plan.tasks.filter(\.done).count, total: plan.tasks.count)
+                                .scaleEffect(leaving.contains(plan.persistentModelID) && !reduceMotion ? 1.25 : 1)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(plan.title.isEmpty ? "Untitled plan" : plan.title).font(.headline)
                                 Text("\(plan.mode.rawValue) · \(plan.start.formatted(.dateTime.weekday().day().month())) · \(plan.tasks.count) task\(plan.tasks.count == 1 ? "" : "s")")
@@ -83,17 +87,20 @@ struct ContentView: View {
                         Button("Delete plan", systemImage: "trash", role: .destructive) { delete([plan]) }
                     }
                 }
-                .onDelete { delete($0.map { plans[$0] }) }
+                .onDelete { delete($0.map { visiblePlans[$0] }) }
                 } header: {
-                    if !todos.isEmpty && !plans.isEmpty { Text("Plans").pixelHeader() }
+                    if !todos.isEmpty && !visiblePlans.isEmpty { Text("Plans").pixelHeader() }
                 }
             }
             .overlay {
-                if plans.isEmpty && todos.isEmpty {
+                if visiblePlans.isEmpty && todos.isEmpty {
                     ContentUnavailableView("Nothing here yet", systemImage: "checklist",
                                            description: Text("Tap + to add a to-do, or plan your day or a goal."))
                 }
             }
+            .onAppear(perform: sweepFinished)
+            .onChange(of: path) { sweepFinished() }
+            .sensoryFeedback(.success, trigger: leaving) { _, now in !now.isEmpty }
             .pixelTitle("Schedule")
             .navigationDestination(for: Plan.self) { PlanView(plan: $0) }
             .toolbar {
@@ -159,6 +166,30 @@ private struct ProgressRing: View {
 
 extension ContentView {
     private var sortedTodos: [TodoItem] { todos.sorted(by: sortOption) }
+
+    private static func finished(_ plan: Plan) -> Bool { !plan.tasks.isEmpty && plan.tasks.allSatisfy(\.done) }
+
+    /// Unfinished plans, plus finished ones still on their way out. A plan already
+    /// finished before the list first showed it never appears.
+    private var visiblePlans: [Plan] {
+        plans.filter { !Self.finished($0) || seenOpen.contains($0.persistentModelID) }
+    }
+
+    /// Back on the list: plans finished since it was last shown pop their ring and
+    /// leave, like a ticked to-do. Then remember which plans are still open.
+    private func sweepFinished() {
+        guard path.isEmpty else { return }
+        let done = Set(plans.filter(Self.finished).map(\.persistentModelID)).intersection(seenOpen)
+        seenOpen.formUnion(plans.filter { !Self.finished($0) }.map(\.persistentModelID))
+        guard !done.isEmpty else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(0.35))   // let the pop-back settle first
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.45)) { leaving.formUnion(done) }
+            try? await Task.sleep(for: .seconds(reduceMotion ? 0.3 : 0.9))
+            withAnimation(.snappy) { seenOpen.subtract(done) }
+            leaving.subtract(done)
+        }
+    }
 
     private func delete(_ gone: [Plan]) { gone.forEach { $0.deletePlan() } }
 }
