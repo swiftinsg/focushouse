@@ -130,11 +130,12 @@
         "...oKccccccccccccccKo...",
         "...oKKKRRRRRRKKKKKKKo...",
         "....oKKKKKKKKKKKKKKo....",
-        ".....oKKooooooooKKo.....",
-        ".....oKKo......oKKo.....",
-        "....okkkko....okkkko....",
-        ".....oooo......oooo....."
-      ]
+        "........................",
+        "........................",
+        "........................",
+        "........................"
+      ],
+      "wall": true
     },
     {
       "name": "Desk Typewriter",
@@ -232,11 +233,12 @@
         "..ownnnnnnnnnnnnnnnnwo..",
         "..ownnnnnnnnnnnnnnnnwo..",
         "..owwwwwwwwwwwwwwwwwwo..",
-        "...ooowwoooooooowwooo...",
-        ".....owwo......owwo.....",
-        "....oWWWWo....oWWWWo....",
-        ".....oooo......oooo....."
-      ]
+        "........................",
+        "........................",
+        "........................",
+        "........................"
+      ],
+      "wall": true
     },
     {
       "name": "Projector Screen",

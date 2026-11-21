@@ -288,8 +288,8 @@ struct InsideView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 RoomView()
-                    .frame(maxWidth: .infinity)
-                Text("Hold and drag your furniture to move it around. Up to \(Shop.roomCap) things fit inside.")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)   // two storeys: fills the screen
+                Text("Hold and drag your furniture to move it around. Boards and clocks hang on the walls.")
                     .font(.footnote).foregroundStyle(.secondary)
                 Button { showUpgrades = true } label: {
                     Label("Decorate with bricks", systemImage: "paintbrush.fill")
@@ -297,7 +297,6 @@ struct InsideView: View {
                         .pixelBox(Color.gold)
                 }
                 .buttonStyle(.plain)
-                Spacer(minLength: 0)
             }
             .padding()
             .foregroundStyle(Color.ink)

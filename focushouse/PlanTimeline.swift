@@ -8,9 +8,7 @@ struct PlanTimeline: View {
     @Bindable var plan: Plan
     @Binding var day: Date   // PlanView's + adds to this day
     @State private var swiped: PersistentIdentifier?   // swiped left: Delete showing
-    @State private var swipeX: CGFloat = 0
-    @State private var dragging: PersistentIdentifier?
-    @State private var dragOffset: CGFloat = 0
+    @State private var dragging = false   // a block is being moved: the timeline holds still
     @State private var scroll = ScrollPosition(edge: .top)
     @State private var askPin: PlanTask?   // just dragged: offer to lock it there
     /// Pinch to zoom; remembered between visits.
@@ -37,7 +35,17 @@ struct PlanTimeline: View {
                         busyBlock(range, from: from)
                     }
                     ForEach(tasksToday) { task in
-                        if let frame = frames[task.persistentModelID] { taskBlock(task, frame: frame) }
+                        if let frame = frames[task.persistentModelID] {
+                            // Its own view, so a drag redraws just this block, not the whole timeline.
+                            TimelineBlock(task: task, frame: frame, top: top, gutter: gutter, perMinute: perMinute,
+                                          swiped: $swiped, dragging: $dragging,
+                                          onMove: { minutes in
+                                              guard let start = task.start else { return }
+                                              plan.move(task, to: start.addingTimeInterval(TimeInterval(minutes * 60)))
+                                              askPin = task
+                                          },
+                                          onDelete: { delete(task) }) { menu(for: task) }
+                        }
                     }
                     nowLine(from: from)
                 }
@@ -48,6 +56,7 @@ struct PlanTimeline: View {
                 .padding(.horizontal)
             }
             .scrollPosition($scroll)
+            .scrollDisabled(dragging)
             .simultaneousGesture(
                 MagnifyGesture()
                     .updating($pinch) { value, state, _ in state = value.magnification }
@@ -59,7 +68,6 @@ struct PlanTimeline: View {
             jumpToFirstTask()
         }
         .onChange(of: day) { swiped = nil; jumpToFirstTask() }
-        .sensoryFeedback(.selection, trigger: dragging)
         .confirmationDialog(askPin.map { "Pin “\($0.title)” to \($0.start?.formatted(date: .omitted, time: .shortened) ?? "")?" } ?? "",
                             isPresented: Binding(get: { askPin != nil }, set: { if !$0 { askPin = nil } }),
                             titleVisibility: .visible, presenting: askPin) { task in
@@ -214,125 +222,13 @@ struct PlanTimeline: View {
 
     // MARK: Tasks
 
-    /// Calendar-style block: a tinted card with a solid bar on the left.
-    private func taskBlock(_ task: PlanTask, frame: (y: CGFloat, height: CGFloat)) -> some View {
-        let isDragging = dragging == task.persistentModelID
-        let color: Color = task.done ? .gray : task.priority == 0 ? .red : .accentColor
-        let roomy = frame.height >= 56
-        return HStack(spacing: 0) {
-            Rectangle().fill(color).frame(width: 4)
-            VStack(alignment: .leading, spacing: 2) {
-                if roomy, !task.parent.isEmpty {
-                    Text(task.parent).font(.caption2.weight(.semibold)).foregroundStyle(color).lineLimit(1)
-                }
-                // Short blocks put the time beside the title so nothing is cut off.
-                let line = roomy ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2)) : AnyLayout(HStackLayout(spacing: 6))
-                line {
-                    HStack(spacing: 4) {
-                        if task.pinned != nil { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.orange) }
-                        if task.done { Image(systemName: "checkmark.circle.fill").font(.caption).foregroundStyle(.green) }
-                        Text(task.title)
-                            .font(.subheadline.weight(.semibold))
-                            .strikethrough(task.done)
-                            .foregroundStyle(task.done ? .secondary : .primary)
-                    }
-                    Text(timeLabel(task, shiftedBy: isDragging ? snapped(dragOffset) : 0))
-                        .font(.caption).foregroundStyle(.secondary).monospacedDigit()
-                }
-                .lineLimit(1)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, roomy ? 6 : 0)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: roomy ? .topLeading : .leading)
-        }
-        .frame(height: frame.height)
-        .background(color.opacity(isDragging ? 0.3 : 0.15))
-        .background(.background)   // solid underneath, so hour lines don't show through
-        .overlay(Rectangle().strokeBorder(color, lineWidth: 2))
-        .shadow(color: .black.opacity(isDragging ? 0.2 : 0), radius: 8, y: 4)
-        .scaleEffect(isDragging ? 1.02 : 1)
-        .contentShape(.contextMenuPreview, Rectangle())
-        .contextMenu { menu(for: task) }
-        .offset(x: swiped == task.persistentModelID ? swipeX : 0)
-        .background(alignment: .trailing) {
-            if swiped == task.persistentModelID {
-                Button("Delete", systemImage: "trash", role: .destructive) { delete(task) }
-                    .labelStyle(.iconOnly)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: max(-swipeX, 0), height: frame.height)
-                    .background(.red)
-            }
-        }
-        .gesture(task.done ? nil : move(task))
-        .simultaneousGesture(swipe(task))
-        .accessibilityElement(children: .combine)
-        .accessibilityHint("Press and hold, then drag to change the time")
-        .accessibilityAction(named: "Delete") { delete(task) }
-        .padding(.leading, gutter)
-        .offset(y: frame.y + top + (isDragging ? dragOffset : 0))
-        .zIndex(isDragging ? 1 : 0)
-    }
-
-    /// Long-press then drag, so normal scrolling still works.
-    private func move(_ task: PlanTask) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.3)
-            .sequenced(before: DragGesture())
-            .onChanged { value in
-                if case .second(true, let drag) = value {
-                    dragging = task.persistentModelID
-                    dragOffset = drag?.translation.height ?? 0
-                }
-            }
-            .onEnded { _ in
-                let minutes = snapped(dragOffset)
-                if minutes != 0, let start = task.start {
-                    plan.move(task, to: start.addingTimeInterval(TimeInterval(minutes * 60)))
-                    askPin = task
-                }
-                dragging = nil
-                dragOffset = 0
-            }
-    }
-
-    /// Swipe left to show Delete (stays open at `swipeOpen`); swipe far to delete
-    /// straight away; swipe right or tap another task to close.
-    private func swipe(_ task: PlanTask) -> some Gesture {
-        DragGesture(minimumDistance: 20)
-            .onChanged { value in
-                guard dragging == nil, abs(value.translation.width) > abs(value.translation.height) else { return }
-                let base: CGFloat = swiped == task.persistentModelID && swipeX < 0 ? -swipeOpen : 0
-                if swiped != task.persistentModelID { swiped = task.persistentModelID }
-                swipeX = min(0, base + value.translation.width)
-            }
-            .onEnded { _ in
-                guard swiped == task.persistentModelID else { return }
-                withAnimation(.snappy) {
-                    if swipeX < -swipeDelete { delete(task) }
-                    else if swipeX < -swipeOpen / 2 { swipeX = -swipeOpen }
-                    else { swiped = nil; swipeX = 0 }
-                }
-            }
-    }
-
-    private let swipeOpen: CGFloat = 80
-    private let swipeDelete: CGFloat = 220
-
     private func delete(_ task: PlanTask) {
         withAnimation(.snappy) {
             swiped = nil
-            swipeX = 0
             plan.delete([task])
         }
     }
 
-    private func snapped(_ offset: CGFloat) -> Int { Int((offset / perMinute / 5).rounded()) * 5 }
-
-    private func timeLabel(_ task: PlanTask, shiftedBy minutes: Int) -> String {
-        guard let start = task.start?.addingTimeInterval(TimeInterval(minutes * 60)) else { return "" }
-        let end = start.addingTimeInterval(TimeInterval(task.minutes * 60))
-        return "\(start.formatted(date: .omitted, time: .shortened))–\(end.formatted(date: .omitted, time: .shortened))"
-    }
 
     @ViewBuilder private func menu(for task: PlanTask) -> some View {
         if !task.done, let start = task.start {
@@ -359,5 +255,138 @@ struct PlanTimeline: View {
             }
         }
         Button("Delete", systemImage: "trash", role: .destructive) { delete(task) }
+    }
+}
+
+/// One task on the timeline: a calendar-style block with a solid bar on the left.
+/// Press and hold, then drag to move it (5-minute snaps); swipe left for Delete.
+/// Drag and swipe offsets live here, so moving redraws only this block.
+private struct TimelineBlock<MenuItems: View>: View {
+    let task: PlanTask
+    let frame: (y: CGFloat, height: CGFloat)
+    let top, gutter, perMinute: CGFloat
+    @Binding var swiped: PersistentIdentifier?   // the one block with Delete showing
+    @Binding var dragging: Bool
+    var onMove: (Int) -> Void
+    var onDelete: () -> Void
+    @ViewBuilder var menu: MenuItems
+
+    @State private var isDragging = false
+    @State private var dragOffset: CGFloat = 0
+    @State private var swipeX: CGFloat = 0
+
+    private let swipeOpen: CGFloat = 80
+    private let swipeDelete: CGFloat = 220
+
+    private var minutes: Int { Int((dragOffset / perMinute / 5).rounded()) * 5 }
+    private var isSwiped: Bool { swiped == task.persistentModelID }
+
+    var body: some View {
+        let color: Color = task.done ? .gray : task.priority == 0 ? .red : .accentColor
+        let roomy = frame.height >= 56
+        HStack(spacing: 0) {
+            Rectangle().fill(color).frame(width: 4)
+            VStack(alignment: .leading, spacing: 2) {
+                if roomy, !task.parent.isEmpty {
+                    Text(task.parent).font(.caption2.weight(.semibold)).foregroundStyle(color).lineLimit(1)
+                }
+                // Short blocks put the time beside the title so nothing is cut off.
+                let line = roomy ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2)) : AnyLayout(HStackLayout(spacing: 6))
+                line {
+                    HStack(spacing: 4) {
+                        if task.pinned != nil { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.orange) }
+                        if task.done { Image(systemName: "checkmark.circle.fill").font(.caption).foregroundStyle(.green) }
+                        Text(task.title)
+                            .font(.subheadline.weight(.semibold))
+                            .strikethrough(task.done)
+                            .foregroundStyle(task.done ? .secondary : .primary)
+                    }
+                    Text(timeLabel).font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                }
+                .lineLimit(1)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, roomy ? 6 : 0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: roomy ? .topLeading : .leading)
+        }
+        .frame(height: frame.height)
+        .background(color.opacity(isDragging ? 0.3 : 0.15))
+        .background(.background)   // solid underneath, so hour lines don't show through
+        .overlay(Rectangle().strokeBorder(color, lineWidth: 2))
+        .shadow(color: .black.opacity(isDragging ? 0.2 : 0), radius: 8, y: 4)
+        .scaleEffect(isDragging ? 1.02 : 1)
+        .animation(.snappy(duration: 0.2), value: isDragging)
+        .contentShape(.contextMenuPreview, Rectangle())
+        .contextMenu { menu }
+        .offset(x: isSwiped ? swipeX : 0)
+        .background(alignment: .trailing) {
+            if isSwiped {
+                Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+                    .labelStyle(.iconOnly)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: max(-swipeX, 0), height: frame.height)
+                    .background(.red)
+            }
+        }
+        .gesture(task.done ? nil : move)
+        .simultaneousGesture(swipe)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Press and hold, then drag to change the time")
+        .accessibilityAction(named: "Delete", onDelete)
+        .padding(.leading, gutter)
+        .offset(y: frame.y + top + dragOffset)
+        .zIndex(isDragging ? 1 : 0)
+        .sensoryFeedback(.impact(weight: .light), trigger: isDragging) { _, on in on }
+        .sensoryFeedback(.selection, trigger: minutes) { _, _ in isDragging }
+        .onChange(of: swiped) { if !isSwiped { swipeX = 0 } }
+    }
+
+    private var timeLabel: String {
+        guard let start = task.start?.addingTimeInterval(TimeInterval((isDragging ? minutes : 0) * 60)) else { return "" }
+        let end = start.addingTimeInterval(TimeInterval(task.minutes * 60))
+        return "\(start.formatted(date: .omitted, time: .shortened))–\(end.formatted(date: .omitted, time: .shortened))"
+    }
+
+    /// Long-press then drag, so normal scrolling still works.
+    private var move: some Gesture {
+        LongPressGesture(minimumDuration: 0.3)
+            .sequenced(before: DragGesture())
+            .onChanged { value in
+                guard case .second(true, let drag) = value else { return }
+                if !isDragging { isDragging = true; dragging = true; swiped = nil }
+                dragOffset = drag?.translation.height ?? 0
+            }
+            .onEnded { _ in
+                let moved = minutes
+                // One animation for the drop and the reflow: the block settles from
+                // where it was let go instead of jumping back first.
+                withAnimation(.snappy) {
+                    if moved != 0 { onMove(moved) }
+                    dragOffset = 0
+                    isDragging = false
+                }
+                dragging = false
+            }
+    }
+
+    /// Swipe left to show Delete (stays open at `swipeOpen`); swipe far to delete
+    /// straight away; swipe right or swipe another task to close.
+    private var swipe: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onChanged { value in
+                guard !isDragging, abs(value.translation.width) > abs(value.translation.height) else { return }
+                let base: CGFloat = isSwiped && swipeX < 0 ? -swipeOpen : 0
+                if !isSwiped { swiped = task.persistentModelID }
+                swipeX = min(0, base + value.translation.width)
+            }
+            .onEnded { _ in
+                guard isSwiped else { return }
+                withAnimation(.snappy) {
+                    if swipeX < -swipeDelete { onDelete() }
+                    else if swipeX < -swipeOpen / 2 { swipeX = -swipeOpen }
+                    else { swiped = nil }
+                }
+            }
     }
 }

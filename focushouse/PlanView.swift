@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 struct PlanView: View {
     @Bindable var plan: Plan
@@ -12,6 +13,12 @@ struct PlanView: View {
     @State private var confirmDelete = false
     @State private var timelineDay = Calendar.current.startOfDay(for: .now)   // the day the timeline shows
     @AppStorage("showFinished") private var showFinished = false
+    @State private var photos: [PhotosPickerItem] = []
+    @State private var importing = false
+    @State private var reading = false          // pulling text out of an attachment
+    @State private var materialNote: String?
+    @FocusState private var materialsFocused: Bool
+    @State private var materialsBefore = ""     // to re-plan only when typing changed it
     @Environment(\.dismiss) private var dismiss
 
     /// What the subtask editor sheet opens with.
@@ -187,10 +194,12 @@ struct PlanView: View {
                 // A text box, not a growing field: long material scrolls inside it
                 // with a visible scroll bar that flashes on open, so it reads as scrollable.
                 TextEditor(text: $plan.materials)
+                    .focused($materialsFocused)
                     .frame(height: materialsHeight)
                     .scrollContentBackground(.hidden)
                     .scrollIndicators(.visible)
                     .scrollIndicatorsFlash(onAppear: true)
+                    .padding(.trailing, Planner.isAvailable ? 36 : 0)   // room for the clip
                     .overlay(alignment: .topLeading) {
                         if plan.materials.isEmpty {
                             Text("Study material (optional)").foregroundStyle(.tertiary)
@@ -198,24 +207,85 @@ struct PlanView: View {
                                 .allowsHitTesting(false)
                         }
                     }
+                    .overlay(alignment: .topTrailing) {
+                        if Planner.isAvailable { attachMenu.padding(.top, 4) }
+                    }
+                    // Typed changes re-plan once the student leaves the box, like Finish by reflows.
+                    .onChange(of: materialsFocused) {
+                        if materialsFocused { materialsBefore = plan.materials }
+                        else if plan.materials != materialsBefore { replanFromGoal() }
+                    }
             }
             if Planner.isAvailable {
-                Button("Re-plan from this goal", systemImage: "sparkles") {
-                    Task {
-                        await run {
-                            let draft = try await Planner.draft(for: plan, history: Reflections.history(in: plan.modelContext))
-                            // Finished tasks (and the bricks they earned) stay.
-                            if plan.tasks.contains(where: \.done) { plan.replaceRemaining(with: draft) } else { plan.replaceTasks(with: draft) }
-                        }
-                    }
-                }
-                .disabled(isWorking || plan.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("Re-plan from this goal", systemImage: "sparkles", action: replanFromGoal)
+                    .disabled(isWorking || plan.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         } header: {
             Text("Goal").pixelHeader()
         } footer: {
-            Text(Planner.isAvailable ? "Changed your goal? Re-plan to rebuild the tasks you haven't finished."
-                                     : "Changing the finish date reschedules your tasks.")
+            if let materialNote { Text(materialNote).foregroundStyle(.orange) }
+            else {
+                Text(Planner.isAvailable ? "Changed your goal? Re-plan to rebuild the tasks you haven't finished. Adding study material re-plans by itself."
+                                         : "Changing the finish date reschedules your tasks.")
+            }
+        }
+        .onChange(of: photos) {
+            guard !photos.isEmpty else { return }
+            let items = photos
+            photos = []
+            Task { await attach { try await StudyMaterial.text(fromPhotos: items) } }
+        }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf, .image], allowsMultipleSelection: true) { result in
+            switch result {
+            case .success(let urls): Task { await attach { try await StudyMaterial.text(fromFiles: urls) } }
+            case .failure(let error): materialNote = error.localizedDescription
+            }
+        }
+    }
+
+    /// The clip on the study material box: photos or a PDF/image file, read on device.
+    private var attachMenu: some View {
+        Menu {
+            PhotosPicker(selection: $photos, maxSelectionCount: 10, matching: .images) {
+                Label("Photos", systemImage: "photo")
+            }
+            Button("PDF or file", systemImage: "doc") { importing = true }
+        } label: {
+            Group {
+                if reading { ProgressView() } else { Image(systemName: "paperclip").font(.title3) }
+            }
+            .frame(width: 32, height: 32)
+            .contentShape(Rectangle())
+        }
+        .disabled(reading || isWorking)
+        .accessibilityLabel("Attach study material")
+    }
+
+    /// Adds an attachment's text (or its outline) under the material, then re-plans
+    /// the unfinished tasks from it.
+    private func attach(_ read: () async throws -> String) async {
+        reading = true
+        materialNote = nil
+        defer { reading = false }
+        do {
+            let (text, note) = await StudyMaterial.prepared(try await read())
+            materialNote = note
+            guard !text.isEmpty else { return }
+            plan.materials = plan.materials.isEmpty ? text : plan.materials + "\n" + text
+            replanFromGoal()
+        } catch {
+            materialNote = error.localizedDescription
+        }
+    }
+
+    /// Rebuilds the tasks from the goal and its material. Finished tasks (and the bricks they earned) stay.
+    private func replanFromGoal() {
+        guard Planner.isAvailable, !isWorking, !plan.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        Task {
+            await run {
+                let draft = try await Planner.draft(for: plan, history: Reflections.history(in: plan.modelContext))
+                if plan.tasks.contains(where: \.done) { plan.replaceRemaining(with: draft) } else { plan.replaceTasks(with: draft) }
+            }
         }
     }
 

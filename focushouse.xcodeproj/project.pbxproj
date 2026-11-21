@@ -31,6 +31,7 @@
 		3E27693DF2E0B4776915A09C /* Proof.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB64AA238AFF46ECA8AE2261 /* Proof.swift */; };
 		4733B7F34DF4B5129F7021B3 /* RestLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FD95A3351594CB129A00CB /* RestLog.swift */; };
 		518122F66462C78DF6CE9BC9 /* Reflections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27232D4D6341F9A882C7D129 /* Reflections.swift */; };
+		51C658DC583AB6FC5642B694 /* room.json in Resources */ = {isa = PBXBuildFile; fileRef = ED6C1CF510BA3EC7E4327A73 /* room.json */; };
 		52ECFC825D706AEAAE0DF9C1 /* SchedulerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F23D453986A905C37C1585D /* SchedulerTests.swift */; };
 		5368604F31D8738A8EA4C481 /* HouseRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F010BD141A1EC48FCE43D7F4 /* HouseRules.swift */; };
 		5A49FCD18CEB6B022EA0052D /* HomeTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42BCB5E1180FD7908A27DC51 /* HomeTour.swift */; };
@@ -180,6 +181,7 @@
 		D0241D3BBC13839E018CBAFE /* StudyMaterialTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyMaterialTests.swift; sourceTree = "<group>"; };
 		D0B42C0A62C1F205F9108762 /* focushouseWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = focushouseWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D86F0C7B0429D79C6C6BD7B6 /* Widgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widgets.swift; sourceTree = "<group>"; };
+		ED6C1CF510BA3EC7E4327A73 /* room.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = room.json; sourceTree = "<group>"; };
 		EFDA20FDB3B47659284A81AF /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		F010BD141A1EC48FCE43D7F4 /* HouseRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HouseRules.swift; sourceTree = "<group>"; };
 		F03E64056D1464FAFB95D8B9 /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OFL.txt; sourceTree = "<group>"; };
@@ -195,6 +197,7 @@
 				C90CE457CBBC739C27E725DA /* furniture_hobbies.json */,
 				7DD7396971A5E762C1CA9D89 /* furniture_more.json */,
 				15CA6253454E1C7253F1A961 /* furniture.json */,
+				ED6C1CF510BA3EC7E4327A73 /* room.json */,
 			);
 			path = Art;
 			sourceTree = "<group>";
@@ -459,6 +462,7 @@
 				1A4320940F4E7E1A1CE7B48D /* furniture.json in Resources */,
 				C0DC2DA52C42E989DF3659C2 /* furniture_hobbies.json in Resources */,
 				880815CC53C034E43813980B /* furniture_more.json in Resources */,
+				51C658DC583AB6FC5642B694 /* room.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

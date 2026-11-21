@@ -248,8 +248,8 @@ import Testing
     }
 
     @Test func shopNeedsLevelOneAndEnoughBricks() {
-        let desk = Furniture(name: "Desk", tag: "Work", description: "", hobby: "desk", level: 1, cost: 40, grid: [])
-        let deluxe = Furniture(name: "Deluxe", tag: "Work", description: "", hobby: "desk", level: 2, cost: 120, grid: [])
+        let desk = Furniture(name: "Desk", tag: "Work", description: "", hobby: "desk", level: 1, cost: 40, grid: [], wall: nil)
+        let deluxe = Furniture(name: "Deluxe", tag: "Work", description: "", hobby: "desk", level: 2, cost: 120, grid: [], wall: nil)
         let all = [desk, deluxe]
         #expect(Shop.state(desk, owned: [], balance: 39, in: all) == .short(1))
         #expect(Shop.state(desk, owned: [], balance: 40, in: all) == .buy)
@@ -262,13 +262,25 @@ import Testing
 
     @Test func roomSpotsCapSwapAndReplace() {
         var raw = ""
-        for g in ["A", "B", "C", "D", "E"] { raw = Shop.toggle(g, in: raw) }
-        #expect(Shop.slots(raw) == ["A", "B", "C", "D"])        // E doesn't fit
+        for g in ["A", "B", "C", "D", "E", "F", "G", "H"] { raw = Shop.toggle(g, in: raw) }
+        #expect(Shop.slots(raw) == ["A", "B", "C", "D", "E", "F", "G", "", "", "", ""])   // 7 floor spots; H doesn't fit
+        raw = Shop.toggle("Board", wall: true, in: raw)
+        #expect(Shop.slots(raw)[7] == "Board")                   // boards take a wall spot
         raw = Shop.put("A", at: 2, in: raw)
-        #expect(Shop.slots(raw) == ["C", "B", "A", "D"])        // moving swaps
-        raw = Shop.put("E", at: 1, in: raw)
-        #expect(Shop.slots(raw) == ["C", "E", "A", "D"])        // new replaces
+        #expect(Shop.slots(raw).prefix(3) == ["C", "B", "A"])     // moving swaps
+        raw = Shop.put("H", at: 1, in: raw)
+        #expect(Shop.slots(raw).prefix(3) == ["C", "H", "A"])     // new replaces
         raw = Shop.toggle("A", in: raw)
-        #expect(Shop.slots(raw) == ["C", "E", "", "D"])         // spot stays put
+        #expect(Shop.slots(raw).prefix(3) == ["C", "H", ""])      // spot stays put
+    }
+
+    @Test func upgradeThatHangsMovesToAWall() {
+        let group = "Planning & focus"   // Hourglass Timer (floor) → Focus Clock (wall)
+        let raw = Shop.toggle(group, in: "")
+        #expect(Shop.placed(raw, owned: ["Hourglass Timer"]).first??.name == "Hourglass Timer")
+        let after = Shop.refit(raw, owned: ["Hourglass Timer", "Focus Clock"])
+        #expect(Shop.slots(after)[0] == "")
+        #expect(Shop.spots[Shop.slots(after).firstIndex(of: group)!].wall)
+        #expect(Shop.placed(after, owned: ["Hourglass Timer", "Focus Clock"]).contains { $0?.name == "Focus Clock" })
     }
 }

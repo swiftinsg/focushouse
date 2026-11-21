@@ -29,6 +29,8 @@ targets:
         buildPhase: resources
       - path: Art/furniture_more.json
         buildPhase: resources
+      - path: Art/room.json   # fireplace + stairs (HY4), drawn at runtime
+        buildPhase: resources
       - path: focushouse.icon   # Icon Composer app icon
         buildPhase: resources
     entitlements:

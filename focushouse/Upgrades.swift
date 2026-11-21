@@ -7,7 +7,9 @@ struct Furniture: Decodable, Identifiable, Hashable {
     let hobby: String?
     let level, cost: Int
     let grid: [String]
+    let wall: Bool?   // hangs on a wall spot (boards, clocks) instead of standing on the floor
     var id: String { name }
+    var onWall: Bool { wall ?? false }
     /// A Lv 2 item upgrades the Lv 1 item in the same group.
     var group: String { hobby ?? name }
 }
@@ -54,21 +56,56 @@ enum Shop {
             .sorted { $0.name < $1.name }
     }
 
-    /// How many things fit inside the house at once.
-    static let roomCap = 4
+    /// A place in the house, in room pixels (top-left of a 24×24 sprite).
+    struct Spot { let x, y: Int; let wall: Bool }
 
-    /// The house's spots, `roomCap` of them, each a furniture group or "" when empty.
+    /// Downstairs floor, upstairs floor, downstairs walls, upstairs walls. The
+    /// first spots were the old one-room house's, so saved rooms keep their order.
+    static let spots: [Spot] =
+        [29, 53, 77].map { Spot(x: $0, y: RoomView.downstairs + RoomView.floorY, wall: false) }
+        + [4, 28, 52, 76].map { Spot(x: $0, y: RoomView.floorY, wall: false) }
+        + [29, 78].map { Spot(x: $0, y: RoomView.downstairs + RoomView.wallY, wall: true) }
+        + [12, 68].map { Spot(x: $0, y: RoomView.wallY, wall: true) }
+
+    /// How many things fit inside the house at once.
+    static var roomCap: Int { spots.count }
+
+    /// The house's spots, each a furniture group or "" when empty.
     /// Saved one per line in UserDefaults ("placed"), by group so upgrading
-    /// Lv 1 → Lv 2 keeps its spot.
+    /// Lv 1 → Lv 2 keeps its spot (if it still fits; see `refit`).
     static func slots(_ raw: String) -> [String] {
         let s = raw.components(separatedBy: "\n")
         return Array((s + Array(repeating: "", count: roomCap)).prefix(roomCap))
     }
 
-    /// What stands in each spot (nil = empty).
+    /// What stands in each spot (nil = empty). Something in the wrong kind of spot isn't shown.
     static func placed(_ raw: String, owned: Set<String>) -> [Furniture?] {
         let room = room(owned)
-        return slots(raw).map { g in room.first { $0.group == g } }
+        return slots(raw).enumerated().map { i, g in room.first { $0.group == g && $0.onWall == spots[i].wall } }
+    }
+
+    /// Whether a group's current item (its highest level owned) hangs on the wall.
+    static func onWall(_ group: String, owned: Set<String>) -> Bool {
+        room(owned).first { $0.group == group }?.onWall ?? false
+    }
+
+    /// Whether `item` has an empty spot of its kind.
+    static func hasRoom(for item: Furniture, _ raw: String, owned: Set<String>) -> Bool {
+        let wall = onWall(item.group, owned: owned.union([item.name]))
+        return placed(raw, owned: owned).enumerated().contains { $0.element == nil && spots[$0.offset].wall == wall }
+    }
+
+    /// After an upgrade changes kind (a floor hourglass becomes a wall clock), or for
+    /// rooms saved before wall spots: move each misfit to a free spot of its kind, or out.
+    static func refit(_ raw: String, owned: Set<String>) -> String {
+        var s = slots(raw)
+        for (i, g) in s.enumerated() where !g.isEmpty && room(owned).contains(where: { $0.group == g }) {
+            let wall = onWall(g, owned: owned)
+            guard wall != spots[i].wall else { continue }
+            s[i] = ""
+            if let j = s.indices.first(where: { s[$0].isEmpty && spots[$0].wall == wall && $0 != i }) { s[j] = g }
+        }
+        return s.joined(separator: "\n")
     }
 
     /// Drops a group on spot `i`. Moving within the house swaps with whatever is
@@ -79,28 +116,38 @@ enum Shop {
         return s.joined(separator: "\n")
     }
 
-    /// Takes a group out, or puts it in the first empty spot.
-    static func toggle(_ group: String, in raw: String) -> String {
+    /// Takes a group out, or puts it in the first empty spot of its kind.
+    static func toggle(_ group: String, wall: Bool = false, in raw: String) -> String {
         var s = slots(raw)
         if let i = s.firstIndex(of: group) { s[i] = "" }
-        else if let i = s.firstIndex(of: "") { s[i] = group }
+        else if let i = s.indices.first(where: { s[$0].isEmpty && spots[$0].wall == wall }) { s[i] = group }
         return s.joined(separator: "\n")
     }
 }
 
-/// Inside the house: a pixel room (wallpaper, window, plank floor) drawn at the
-/// furniture sprites' own pixel size, with furniture standing in `roomCap` spots.
-/// Long-press and drag to move things between spots, or drop something from
+/// Inside the house: two storeys drawn at the furniture sprites' own pixel size.
+/// Downstairs has the fireplace (under the chimney) and the stairs; each floor has
+/// floor spots and wall spots for boards and clocks (`Shop.spots`). Long-press and
+/// drag to move things between spots of the same kind, or drop something from
 /// "Your things" onto a spot. Opens from the house's door on Home.
 struct RoomView: View {
     @AppStorage("owned") private var ownedRaw = ""
     @AppStorage("placed") private var placedRaw = ""
     @State private var target: Int?
 
-    /// The room in sprite pixels: 4 spots of 24, a pixel apart, with a margin.
-    static let size = CGSize(width: 106, height: 64)
-    static func spotX(_ i: Int) -> Int { 4 + i * 25 }
-    static let spotY = 29          // a sprite's bottom row lands on floor row 52
+    /// The house in sprite pixels: two storeys of `storey` rows with a 2-row floor between.
+    static let size = CGSize(width: 134, height: 202)
+    static let storey = 100
+    nonisolated static let downstairs = 102    // first row of the ground floor
+    static let floorStart = 78     // within a storey: where the planks begin
+    nonisolated static let floorY = 63         // a floor sprite's bottom row lands on row 86
+    nonisolated static let wallY = 24
+    static let stairsX = 104
+
+    /// Fixed art (fireplace, stairs) from `Art/room.json`, drawn by HY4.
+    static let art: [String: [String]] = Bundle.main.url(forResource: "room", withExtension: "json")
+        .flatMap { try? Data(contentsOf: $0) }
+        .flatMap { try? JSONDecoder().decode([String: [String]].self, from: $0) } ?? [:]
 
     var body: some View {
         let owned = Shop.owned(ownedRaw)
@@ -111,33 +158,53 @@ struct RoomView: View {
             let px = geo.size.width / Self.size.width
             ZStack(alignment: .topLeading) {
                 Canvas { ctx, _ in Self.draw(ctx, px: px, filled: slots.map { $0 != nil }) }
+                if let stairs = Self.art["stairs"], let fire = Self.art["fireplace"] {
+                    sprite(fire, x: 2, bottom: Self.downstairs + Self.floorY + 23, px: px)
+                    sprite(stairs, x: Self.stairsX, bottom: Self.downstairs + Self.floorY + 23, px: px)
+                }
                 ForEach(slots.indices, id: \.self) { i in
-                    spot(slots[i], px: px)
+                    spot(slots[i], wall: Shop.spots[i].wall, px: px)
                         .overlay { if target == i { Rectangle().strokeBorder(Color.gold, lineWidth: 3) } }
                         .dropDestination(for: String.self) { groups, _ in
                             // only things the student owns, not any text dragged in from elsewhere
-                            guard let g = groups.first, Shop.room(owned).contains(where: { $0.group == g }) else { return false }
+                            guard let g = groups.first, Shop.room(owned).contains(where: { $0.group == g }),
+                                  Shop.onWall(g, owned: owned) == Shop.spots[i].wall else { return false }   // boards on walls, the rest on floors
                             withAnimation(.snappy) { placedRaw = Shop.put(g, at: i, in: placedRaw) }
                             return true
                         } isTargeted: { on in
                             if on { target = i } else if target == i { target = nil }
                         }
                         .frame(width: 24 * px, height: 24 * px)
-                        .position(x: (CGFloat(Self.spotX(i)) + 12) * px, y: (CGFloat(Self.spotY) + 12) * px)
+                        .position(x: (CGFloat(Shop.spots[i].x) + 12) * px, y: (CGFloat(Shop.spots[i].y) + 12) * px)
                 }
             }
         }
         .aspectRatio(Self.size.width / Self.size.height, contentMode: .fit)
         .pixelBox(Color.wall)
         .sensoryFeedback(.selection, trigger: placedRaw)
+        .onAppear { placedRaw = Shop.refit(placedRaw, owned: Shop.owned(ownedRaw)) }   // rooms saved before wall spots
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(items.isEmpty ? "Inside your house: empty" : "Inside your house: " + items.map(\.name).joined(separator: ", "))
     }
 
-    @ViewBuilder private func spot(_ item: Furniture?, px: CGFloat) -> some View {
+    /// Fixed art placed by its bottom-left pixel.
+    private func sprite(_ grid: [String], x: Int, bottom: Int, px: CGFloat) -> some View {
+        let w = CGFloat(grid[0].count), h = CGFloat(grid.count)
+        return PixelSprite(grid: grid)
+            .frame(width: w * px, height: h * px)
+            .position(x: (CGFloat(x) + w / 2) * px, y: (CGFloat(bottom + 1) - h / 2) * px)
+            .allowsHitTesting(false)
+    }
+
+    @ViewBuilder private func spot(_ item: Furniture?, wall: Bool, px: CGFloat) -> some View {
         if let item {
             PixelSprite(grid: item.grid)
                 .draggable(item.group) { PixelSprite(grid: item.grid).frame(width: 72) }
+        } else if wall {
+            // an empty wall spot: a dashed picture-frame outline
+            Rectangle().strokeBorder(Color(light: 0x8A6A45, dark: 0x8A6A45).opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [4, 4]))
+                .padding(3 * px)
+                .contentShape(Rectangle())
         } else {
             // an empty spot: a dashed footprint on the floor
             Rectangle().strokeBorder(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 2, dash: [4, 4]))
@@ -148,30 +215,56 @@ struct RoomView: View {
         }
     }
 
-    /// The room itself, in fixed pixel-art colours like the house sprites.
+    /// The rooms themselves, in fixed pixel-art colours like the house sprites.
     static func draw(_ ctx: GraphicsContext, px: CGFloat, filled: [Bool]) {
         func fill(_ x: Int, _ y: Int, _ w: Int, _ h: Int, _ hex: UInt32, _ opacity: Double = 1) {
             ctx.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px, width: CGFloat(w) * px + 0.5, height: CGFloat(h) * px + 0.5)),
                      with: .color(Color(light: hex, dark: hex).opacity(opacity)))
         }
-        let w = Int(size.width), h = Int(size.height)
-        fill(0, 0, w, 45, 0xF4E7CE)                                          // wallpaper
-        for x in stride(from: 3, to: w, by: 6) { fill(x, 2, 1, 40, 0xE6D3AF) } // stripes
-        fill(0, 0, w, 2, 0x553A22)                                           // ceiling beam
-        fill(40, 6, 26, 18, 0x6A4426)                                        // window frame
-        for (x, y, c) in [(42, 8, 0x8ECFE6), (54, 8, 0x8ECFE6), (42, 15, 0x4D93B0), (54, 15, 0x4D93B0)] as [(Int, Int, UInt32)] {
-            fill(x, y, 10, 6, c)
+        let w = Int(size.width)
+        /// One storey from row `top`: wallpaper, beam, skirting, planks.
+        func drawStorey(_ top: Int, paper: UInt32, stripe: UInt32) {
+            fill(0, top, w, floorStart, paper)
+            for x in stride(from: 3, to: w, by: 6) { fill(x, top + 2, 1, floorStart - 4, stripe) }
+            fill(0, top, w, 2, 0x553A22)                                             // ceiling beam
+            fill(0, top + floorStart - 3, w, 3, 0x6A4426); fill(0, top + floorStart - 3, w, 1, 0x91603A)   // skirting
+            for (band, y) in stride(from: top + floorStart, to: top + storey, by: 3).enumerated() {
+                let rows = min(3, top + storey - y)
+                fill(0, y, w, rows, band % 2 == 0 ? 0x91603A : 0x7A5334)
+                for x in stride(from: (band * 11) % 26, to: w, by: 26) { fill(x, y, 1, rows, 0x553A22) }
+            }
         }
-        fill(43, 9, 1, 3, 0xF4FBFF); fill(55, 9, 1, 3, 0xF4FBFF)             // glints
-        fill(39, 24, 28, 1, 0xE8F0FB)                                        // sill
-        fill(0, 42, w, 3, 0x6A4426); fill(0, 42, w, 1, 0x91603A)             // skirting
-        for (band, y) in stride(from: 45, to: h, by: 3).enumerated() {       // floor planks
-            let rows = min(3, h - y)
-            fill(0, y, w, rows, band % 2 == 0 ? 0x91603A : 0x7A5334)
-            for x in stride(from: (band * 11) % 26, to: w, by: 26) { fill(x, y, 1, rows, 0x553A22) }
+        drawStorey(0, paper: 0xDDE9E2, stripe: 0xC8DCD2)            // upstairs: cool mint
+        drawStorey(downstairs, paper: 0xF4E7CE, stripe: 0xE6D3AF)   // downstairs: warm cream
+        fill(0, storey, w, downstairs - storey, 0x3E2A18)       // the floor between
+
+        // Downstairs window, between the two wall spots.
+        let wy = downstairs + wallY + 3
+        fill(54, wy, 23, 18, 0x6A4426)
+        for (x, y, c) in [(56, wy + 2, 0x8ECFE6), (66, wy + 2, 0x8ECFE6), (56, wy + 9, 0x4D93B0), (66, wy + 9, 0x4D93B0)] as [(Int, Int, UInt32)] {
+            fill(x, y, 9, 6, c)
         }
-        for (i, on) in filled.enumerated() where on {                       // soft shadow under furniture
-            fill(spotX(i) + 2, spotY + 23, 20, 2, 0x2B2340, 0.25)
+        fill(57, wy + 3, 1, 3, 0xF4FBFF); fill(67, wy + 3, 1, 3, 0xF4FBFF)   // glints
+        fill(53, wy + 18, 25, 1, 0xE8F0FB)                                  // sill
+
+        // Upstairs: the round attic window from the house's front.
+        let cx = 52, cy = wallY + 12, r = 9
+        for dy in -r...r {
+            let half = Int((Double(r * r - dy * dy)).squareRoot().rounded())
+            fill(cx - half, cy + dy, half * 2 + 1, 1, 0x6A4426)
+            if abs(dy) < r - 1 {
+                let inner = Int((Double((r - 2) * (r - 2) - dy * dy)).squareRoot().rounded())
+                if (r - 2) * (r - 2) >= dy * dy { fill(cx - inner, cy + dy, inner * 2 + 1, 1, dy < 0 ? 0x8ECFE6 : 0x4D93B0) }
+            }
+        }
+        fill(cx, cy - r + 1, 1, r * 2 - 1, 0x6A4426); fill(cx - r + 1, cy, r * 2 - 1, 1, 0x6A4426)   // cross bars
+        fill(cx - 4, cy - 5, 1, 3, 0xF4FBFF)
+
+        // The stairwell: an opening in the floor above the stairs.
+        fill(stairsX, storey, w - stairsX, downstairs - storey, 0x2B2340, 0.5)
+
+        for (i, on) in filled.enumerated() where on && !Shop.spots[i].wall {   // soft shadow under furniture
+            fill(Shop.spots[i].x + 2, Shop.spots[i].y + 23, 20, 2, 0x2B2340, 0.25)
         }
     }
 }
@@ -182,7 +275,7 @@ struct PixelSprite: View {
 
     var body: some View {
         Canvas { ctx, size in
-            let px = size.width / 24
+            let px = size.width / CGFloat(grid.first?.count ?? 24)
             for (y, row) in grid.enumerated() {
                 for (x, c) in row.enumerated() where c != "." {
                     guard let color = Shop.catalog.palette[c] else { continue }
@@ -191,7 +284,7 @@ struct PixelSprite: View {
                 }
             }
         }
-        .aspectRatio(1, contentMode: .fit)
+        .aspectRatio(CGFloat(grid.first?.count ?? 24) / CGFloat(max(grid.count, 1)), contentMode: .fit)
         .accessibilityHidden(true)
     }
 }
@@ -218,7 +311,7 @@ struct UpgradesView: View {
                         .font(.subheadline).foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Inside your house \(placed.count)/\(Shop.roomCap)").font(.pixel(20, relativeTo: .headline).weight(.bold))
-                        RoomView()
+                        RoomView().frame(maxHeight: 340)
                         Text(room.isEmpty ? "Buy something from the shelves below, then put it inside."
                                           : "Hold and drag your things onto a spot, or tap one to put it in or take it out.")
                             .font(.footnote).foregroundStyle(.secondary)
@@ -249,14 +342,16 @@ struct UpgradesView: View {
             .sheet(item: $picked) { item in
                 FurnitureDetail(item: item, state: Shop.state(item, owned: owned, balance: balance),
                                 isPlaced: placed.contains { $0.group == item.group },
-                                roomFull: placed.count >= Shop.roomCap) {
-                    ownedRaw = (owned.union([item.name])).sorted().joined(separator: "\n")
+                                roomFull: !Shop.hasRoom(for: item, placedRaw, owned: owned)) {
+                    let now = owned.union([item.name])
+                    ownedRaw = now.sorted().joined(separator: "\n")
+                    placedRaw = Shop.refit(placedRaw, owned: now)   // an upgrade may move from floor to wall
                     // new things go straight inside while there's space
                     if item.level == 1, !placed.contains(where: { $0.group == item.group }) {
-                        placedRaw = Shop.toggle(item.group, in: placedRaw)
+                        placedRaw = Shop.toggle(item.group, wall: item.onWall, in: placedRaw)
                     }
                 } place: {
-                    placedRaw = Shop.toggle(item.group, in: placedRaw)
+                    placedRaw = Shop.toggle(item.group, wall: Shop.onWall(item.group, owned: owned), in: placedRaw)
                 }
             }
             .sensoryFeedback(.success, trigger: ownedRaw)
