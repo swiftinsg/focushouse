@@ -144,10 +144,16 @@ struct RoomView: View {
     nonisolated static let wallY = 24
     static let stairsX = 104
 
-    /// Fixed art (fireplace, stairs) from `Art/room.json`, drawn by HY4.
-    static let art: [String: [String]] = Bundle.main.url(forResource: "room", withExtension: "json")
+    /// Fixed art and animation frames from `Art/room.json`, drawn by HY4 (via opencode).
+    struct Art: Decodable {
+        var fireplace: [String] = [], stairs: [String] = []
+        var fire: [[String]] = [], catWalk: [[String]] = [], catSleep: [[String]] = []
+    }
+    static let art: Art = Bundle.main.url(forResource: "room", withExtension: "json")
         .flatMap { try? Data(contentsOf: $0) }
-        .flatMap { try? JSONDecoder().decode([String: [String]].self, from: $0) } ?? [:]
+        .flatMap { try? JSONDecoder().decode(Art.self, from: $0) } ?? Art()
+    /// Where the fireplace's bottom row sits (on the downstairs floor).
+    static var groundLine: Int { downstairs + floorY + 23 }
 
     var body: some View {
         let owned = Shop.owned(ownedRaw)
@@ -158,9 +164,9 @@ struct RoomView: View {
             let px = geo.size.width / Self.size.width
             ZStack(alignment: .topLeading) {
                 Canvas { ctx, _ in Self.draw(ctx, px: px, filled: slots.map { $0 != nil }) }
-                if let stairs = Self.art["stairs"], let fire = Self.art["fireplace"] {
-                    sprite(fire, x: 2, bottom: Self.downstairs + Self.floorY + 23, px: px)
-                    sprite(stairs, x: Self.stairsX, bottom: Self.downstairs + Self.floorY + 23, px: px)
+                if !Self.art.fireplace.isEmpty, !Self.art.stairs.isEmpty {
+                    sprite(Self.art.fireplace, x: 2, bottom: Self.groundLine, px: px)
+                    sprite(Self.art.stairs, x: Self.stairsX, bottom: Self.groundLine, px: px)
                 }
                 ForEach(slots.indices, id: \.self) { i in
                     spot(slots[i], wall: Shop.spots[i].wall, px: px)
@@ -177,6 +183,7 @@ struct RoomView: View {
                         .frame(width: 24 * px, height: 24 * px)
                         .position(x: (CGFloat(Shop.spots[i].x) + 12) * px, y: (CGFloat(Shop.spots[i].y) + 12) * px)
                 }
+                RoomLife(px: px)   // fire, embers, candle, the cat: on top, never in the way of a drop
             }
         }
         .aspectRatio(Self.size.width / Self.size.height, contentMode: .fit)
@@ -265,6 +272,102 @@ struct RoomView: View {
 
         for (i, on) in filled.enumerated() where on && !Shop.spots[i].wall {   // soft shadow under furniture
             fill(Shop.spots[i].x + 2, Shop.spots[i].y + 23, 20, 2, 0x2B2340, 0.25)
+        }
+    }
+}
+
+/// The room's moving bits, frames by HY4: the fire flickers, embers drift up,
+/// the mantel candle glows, and a ginger cat wanders the ground floor then naps
+/// by the fire (tap it for hearts). Still frames with Reduce Motion.
+private struct RoomLife: View {
+    let px: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pettedAt = Date.distantPast
+    @State private var pets = 0
+
+    private let art = RoomView.art
+    private var fireTop: Int { RoomView.groundLine - art.fireplace.count + 1 }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 8, paused: reduceMotion)) { timeline in
+            let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+            ZStack(alignment: .topLeading) {
+                if !art.fire.isEmpty {
+                    let frame = art.fire[Int(t * 6) % art.fire.count]
+                    place(frame, x: 2, y: fireTop + 71)
+                }
+                Canvas { ctx, _ in glow(ctx, t: t) }
+                    .allowsHitTesting(false)
+                cat(t: t, now: timeline.date)
+            }
+        }
+        .accessibilityHidden(true)
+        .sensoryFeedback(.impact(weight: .light), trigger: pets)
+    }
+
+    /// A sprite with its top-left at room pixel (x, y).
+    private func place(_ grid: [String], x: CGFloat, y: Int, flip: Bool = false) -> some View {
+        let w = CGFloat(grid.first?.count ?? 0), h = CGFloat(grid.count)
+        return PixelSprite(grid: grid)
+            .frame(width: w * px, height: h * px)
+            .scaleEffect(x: flip ? -1 : 1)
+            .position(x: (x + w / 2) * px, y: (CGFloat(y) + h / 2) * px)
+            .allowsHitTesting(false)
+    }
+
+    /// Candle glow and rising embers, in room pixels.
+    private func glow(_ ctx: GraphicsContext, t: Double) {
+        func dot(_ x: Double, _ y: Double, _ size: Double, _ color: Color) {
+            ctx.fill(Path(CGRect(x: x * px, y: y * px, width: size * px, height: size * px)), with: .color(color))
+        }
+        // candle on the mantel: a warm halo that breathes and flickers
+        let flicker = 0.18 + 0.08 * sin(t * 9) + 0.05 * sin(t * 23)
+        ctx.fill(Path(ellipseIn: CGRect(x: 10.5 * px, y: Double(fireTop + 52) * px, width: 7 * px, height: 7 * px)),
+                 with: .color(Color(light: 0xF8E3A0, dark: 0xF8E3A0).opacity(flicker)))
+        guard !reduceMotion else { return }
+        // embers: three sparks, each rising ~14 px over its own 2.4 s loop
+        for i in 0..<3 {
+            let phase = (t / 2.4 + Double(i) / 3).truncatingRemainder(dividingBy: 1)
+            let x = 13 + Double(i * 3) + 1.5 * sin(t * 3 + Double(i) * 2)
+            let y = Double(fireTop + 72) - phase * 14
+            dot(x.rounded(), y.rounded(), 1, Color(light: i == 1 ? 0xF8E3A0 : 0xE9B24A, dark: i == 1 ? 0xF8E3A0 : 0xE9B24A).opacity(1 - phase))
+        }
+    }
+
+    /// 40 s loop: walk right from the hearth, pause, walk back, nap in front of the fire.
+    @ViewBuilder private func cat(t: Double, now: Date) -> some View {
+        if !art.catWalk.isEmpty, !art.catSleep.isEmpty {
+            let home = 27.0, far = 84.0, speed = 6.0            // room pixels, px per second
+            let walk = (far - home) / speed                    // 13 s each way
+            let loop = walk * 2 + 4 + 14
+            let s = t.truncatingRemainder(dividingBy: loop)
+            let bottom = RoomView.groundLine + 3              // a little in front of the furniture
+            let (x, grid, flip): (Double, [String], Bool) = reduceMotion || s >= walk * 2 + 4
+                ? (home, art.catSleep[Int(t / 1.6) % art.catSleep.count], false)                   // napping, breathing
+                : s < walk ? (home + s * speed, art.catWalk[Int(t * 6) % art.catWalk.count], false)  // walking right
+                : s < walk + 4 ? (far, art.catWalk[0], false)                                        // a look around
+                : (far - (s - walk - 4) * speed, art.catWalk[Int(t * 6) % art.catWalk.count], true)  // walking home
+            let y = bottom - grid.count + 1
+            let w = Double(grid.first?.count ?? 16)
+            let petted = now.timeIntervalSince(pettedAt)
+            ZStack(alignment: .topLeading) {
+                place(grid, x: x.rounded(), y: y, flip: flip)
+                if petted < 1.4 {   // little pink hearts float up
+                    ForEach(0..<2, id: \.self) { i in
+                        Text("♥").font(.system(size: 5 * px, weight: .black)).foregroundStyle(Color(light: 0xE3A3B4, dark: 0xE3A3B4))
+                            .position(x: (x + w / 3 + Double(i * 6)) * px, y: (Double(y) - 2 - petted * 8 - Double(i * 2)) * px)
+                            .opacity(1 - petted / 1.4)
+                            .allowsHitTesting(false)
+                    }
+                }
+                // the cat itself takes taps: pet it
+                Color.clear
+                    .frame(width: w * px, height: CGFloat(grid.count) * px)
+                    .contentShape(Rectangle())
+                    .position(x: (x + w / 2) * px, y: (Double(y) + Double(grid.count) / 2) * px)
+                    .onTapGesture { pettedAt = .now; pets += 1 }
+                    .accessibilityHidden(true)
+            }
         }
     }
 }
