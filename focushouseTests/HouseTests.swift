@@ -222,6 +222,22 @@ import Testing
         #expect(log.seconds(on: now) == 40 * 60 + 3600)   // Screen Time: one quiet hour is enough
     }
 
+    @Test func skyClockFollowsTheClock() {
+        let at = { (h: Int, m: Int) in
+            Calendar.current.date(from: DateComponents(year: 2026, month: 11, day: 21, hour: h, minute: m))!
+        }
+        #expect(SkyClock.phase(at: at(3, 0)) == .night)
+        #expect(SkyClock.phase(at: at(6, 30)) == .dawn)
+        #expect(SkyClock.phase(at: at(12, 0)) == .day)
+        #expect(SkyClock.phase(at: at(18, 30)) == .dusk)
+        #expect(SkyClock.phase(at: at(19, 29)) == .dusk)
+        #expect(SkyClock.phase(at: at(19, 30)) == .night)
+        #expect(SkyClock.daylight(at: at(12, 0)) == 1 && SkyClock.daylight(at: at(2, 0)) == 0)
+        #expect(SkyClock.nightAmount(state: .resting, at: at(12, 0)) == 1)
+        #expect(SkyClock.nightAmount(state: .calm, at: at(12, 0)) == 0)
+        #expect(SkyClock.nightAmount(state: .calm, at: at(2, 0)) == 1)
+    }
+
     @Test func houseFixesUpWithBricksEarned() {
         #expect(House.level(earned: 0) == 0 && House.toNextLevel(earned: 0) == 40)
         #expect(House.level(earned: 39) == 0 && House.level(earned: 40) == 1)

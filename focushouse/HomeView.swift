@@ -17,6 +17,11 @@ struct HomeView: View {
     @AppStorage("insight") private var insight = ""
     @AppStorage("homeTourDone") private var tourDone = false
     @AppStorage("weeklySummaryOn") private var summaryOn = true
+    @AppStorage("seenHouseLevel") private var seenLevel = -1
+    @State private var build: LevelBuild?
+    @State private var buildDone = 0
+    @State private var showCaption = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let now = Date.now
@@ -30,14 +35,35 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    ZStack {
-                        HouseScene(state: state, level: level)
-                            .background(state.sky)
-                            .id(state)
-                            .transition(.opacity)   // crossfade when the house changes state
+                    HouseStage(state: state, level: level, build: build, reduceMotion: reduceMotion)
+                    .overlay(alignment: .bottom) {
+                        if showCaption, let build {
+                            Text("Level up! \(House.levelNames[build.to])")
+                                .font(.pixel(20, relativeTo: .headline).weight(.bold))
+                                .foregroundStyle(Color.gold)
+                                .shadow(color: .black.opacity(0.8), radius: 0, x: 1, y: 1)
+                                .padding(.bottom, 6)
+                                .transition(.opacity)
+                                .allowsHitTesting(false)
+                        }
                     }
+                    .id(state)
+                    .transition(.opacity)   // crossfade when the house changes state
                     .animation(.easeInOut(duration: 0.8), value: state)
-                    .animation(.easeInOut(duration: 0.8), value: level)
+                    .onAppear { checkBuild(level: level) }
+                    .onChange(of: level) { checkBuild(level: level) }
+                    .task(id: build?.start) {
+                        guard let b = build else { return }
+                        try? await Task.sleep(for: .seconds(reduceMotion ? 0.35 : 2.5))
+                        seenLevel = b.to
+                        buildDone += 1
+                        withAnimation(.easeOut(duration: 0.25)) { build = nil; showCaption = true }
+                    }
+                    .task(id: showCaption) {
+                        guard showCaption else { return }
+                        try? await Task.sleep(for: .seconds(1.1))
+                        withAnimation(.easeIn(duration: 0.4)) { showCaption = false }
+                    }
                     .overlay {
                         // the door (sprite pixels 32–42 × 42–61) is a button into the house
                         GeometryReader { geo in
@@ -58,6 +84,7 @@ struct HomeView: View {
                         default: nil
                         }
                     }
+                    .sensoryFeedback(.success, trigger: buildDone)
                     .pixelBox()
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("Your house: \(state.title), \(House.levelNames[level])")
@@ -123,6 +150,15 @@ struct HomeView: View {
             }
             .task { await refresh() }
         }
+    }
+
+    /// First launch just remembers the level; after that, bricks that fix the
+    /// house up while Home is open play the build sequence before the new level
+    /// is shown. A level can never go down, but keep that case tidy anyway.
+    private func checkBuild(level: Int) {
+        if seenLevel < 0 { seenLevel = level }
+        else if level > seenLevel { build = LevelBuild(from: seenLevel, to: level, start: .now) }
+        else if level < seenLevel { seenLevel = level }
     }
 
     /// Opens the door in two pixel frames, then steps inside: InsideView fades
@@ -312,6 +348,48 @@ struct InsideView: View {
     }
 }
 
+/// One house level-up in progress: the level the student last saw and the one
+/// the new bricks earned, plus when the sequence started.
+private struct LevelBuild {
+    let from: Int, to: Int, start: Date
+}
+
+/// The sky and the house, ticked at 12 fps: the clock drives the sky colour and
+/// night overlay, and a build (when there is one) drives the brick sequence and
+/// the old→new level crossfade.
+private struct HouseStage: View {
+    let state: House.State
+    let level: Int
+    let build: LevelBuild?
+    let reduceMotion: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 12)) { timeline in
+            let now = timeline.date
+            let sky = Color.sky(for: state, at: now)
+            let night = SkyClock.nightAmount(state: state, at: now)
+            let elapsed = build.map { now.timeIntervalSince($0.start) } ?? 0
+            let fade = fade(for: build, elapsed: elapsed)
+            ZStack {
+                if let build { HouseScene(state: state, level: build.from, night: night, sky: sky) }
+                HouseScene(state: state, level: level, night: night, sky: sky).opacity(fade)
+                if build != nil {
+                    Canvas { ctx, size in
+                        if !reduceMotion { HouseScene.drawBuild(elapsed: elapsed, ctx: ctx, px: size.width / HouseScene.width) }
+                    }
+                    .allowsHitTesting(false)
+                }
+            }
+            .background(sky)
+        }
+    }
+
+    private func fade(for build: LevelBuild?, elapsed: Double) -> Double {
+        guard build != nil else { return 1 }
+        return reduceMotion ? min(1, elapsed / 0.35) : min(1, max(0, (elapsed - 2) / 0.5))
+    }
+}
+
 /// The house sprite (96×64, `house.<state>.<level>`, tools/house_art.py) with a
 /// little life on top, in the sprite's own pixels: chimney smoke when calm, grey
 /// smoke when stressed, rain when overloaded, rain and falling bricks when
@@ -319,23 +397,124 @@ struct InsideView: View {
 struct HouseScene: View {
     let state: House.State
     var level = 4
+    /// 0 in full day, 1 at night: how much of the night overlay to show.
+    var night = 0.0
+    /// The same colour as the sky behind the sprite, to cover the baked-in sun.
+    var sky = Color.clear
     static let width: CGFloat = 96
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Image("house.\(state.rawValue).\(level)").pixelArt()
             .overlay {
-                if !reduceMotion {
-                    // 12 fps on purpose: smooth motion looks wrong on pixel art.
-                    TimelineView(.animation(minimumInterval: 1 / 12)) { timeline in
-                        Canvas { ctx, size in
-                            Self.draw(state, t: timeline.date.timeIntervalSinceReferenceDate, ctx: ctx, px: size.width / Self.width)
-                        }
+                // 12 fps on purpose: smooth motion looks wrong on pixel art.
+                // Reduce Motion hides the moving weather (as before) and pins the
+                // night overlay's twinkle to a still frame.
+                TimelineView(.animation(minimumInterval: 1 / 12)) { timeline in
+                    Canvas { ctx, size in
+                        let px = size.width / Self.width
+                        let t = timeline.date.timeIntervalSinceReferenceDate
+                        if !reduceMotion { Self.draw(state, t: t, ctx: ctx, px: px) }
+                        Self.drawNight(state: state, level: level, night: night, sky: sky,
+                                       t: reduceMotion ? 0 : t, ctx: ctx, px: px)
                     }
-                    .clipped()
-                    .allowsHitTesting(false)
                 }
+                .clipped()
+                .allowsHitTesting(false)
             }
+    }
+
+    /// Glass cells of the two windows in the 96×64 reference sprite (tools/house_art.py's
+    /// GLASS set, grouped into rects). The round one is boarded at level 0 and the
+    /// square one at levels 0–1, so callers only light them once the glass exists.
+    private static let roundGlass = [
+        (44, 23, 2, 1), (43, 24, 3, 1), (42, 25, 4, 2), (42, 28, 4, 2), (43, 30, 3, 1), (44, 31, 2, 1),
+        (47, 23, 2, 1), (47, 24, 3, 1), (47, 25, 4, 2), (47, 28, 4, 2), (47, 30, 3, 1), (47, 31, 2, 1),
+    ]
+    private static let squareGlass = [(53, 42, 3, 3), (53, 46, 3, 3), (57, 42, 3, 3), (57, 46, 3, 3)]
+
+    /// Moon, stars and warm windows over the sprite at night. The resting sprite
+    /// already has all three baked in, so it is left alone.
+    static func drawNight(state: House.State, level: Int, night: Double, sky: Color, t: Double, ctx: GraphicsContext, px: CGFloat) {
+        guard night > 0, state != .resting else { return }
+        func dot(_ x: Double, _ y: Double, _ color: Color, w: Double = 1, h: Double = 1) {
+            ctx.fill(Path(CGRect(x: x.rounded() * px, y: y.rounded() * px, width: w * px, height: h * px)), with: .color(color))
+        }
+        let stars = [(18.0, 4.0), (36, 6), (54, 3), (68, 7), (86, 4), (92, 11), (3, 16), (8, 9)]
+        for (i, (x, y)) in stars.enumerated() {
+            let twinkle = 0.35 + 0.65 * max(0, sin(t * 2.4 + Double(i) * 1.9))
+            dot(x, y, Color(red: 1, green: 0.96, blue: 0.8).opacity(night * twinkle))
+        }
+        if state == .calm || state == .stressed {
+            // The baked sun is a blob at (8,6) r4 (x 4–12, y 2–10): paint it out
+            // with the exact sky colour, then put a small crescent in its place.
+            ctx.fill(Path(CGRect(x: 4 * px, y: 2 * px, width: 9 * px, height: 9 * px)), with: .color(sky.opacity(night)))
+            let moon = Color(red: 1, green: 0.95, blue: 0.78).opacity(night)
+            dot(8, 5, moon)
+            dot(7, 6, moon, w: 2)
+            dot(7, 7, moon, w: 2)
+            dot(8, 8, moon)
+        }
+        let glow = Color(red: 1, green: 0.86, blue: 0.42).opacity(night)
+        // ponytail: fills a glass rect even where damage shattered part of it.
+        for rect in level >= 1 ? Self.roundGlass : [] { Self.fill(rect, glow, ctx: ctx, px: px) }
+        for rect in level >= 2 ? Self.squareGlass : [] { Self.fill(rect, glow, ctx: ctx, px: px) }
+    }
+
+    /// One scaffold plank/brick block, snapped to the sprite grid.
+    private static func fill(_ r: (Int, Int, Int, Int), _ color: Color, ctx: GraphicsContext, px: CGFloat) {
+        ctx.fill(Path(CGRect(x: CGFloat(r.0) * px, y: CGFloat(r.1) * px,
+                             width: CGFloat(r.2) * px + 0.5, height: CGFloat(r.3) * px + 0.5)), with: .color(color))
+    }
+
+    /// The level-up build: scaffolding rises, ten bricks drop and bounce onto the
+    /// roof with dust puffs, then the scaffold drops away before the house fades
+    /// to its new level. `elapsed` is seconds since the sequence started.
+    static func drawBuild(elapsed: Double, ctx: GraphicsContext, px: CGFloat) {
+        func block(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ color: Color) {
+            ctx.fill(Path(CGRect(x: x.rounded() * px, y: y.rounded() * px, width: w * px + 0.5, height: h * px + 0.5)), with: .color(color))
+        }
+        let wood = Color(red: 0x9A / 255, green: 0x66 / 255, blue: 0x36 / 255)
+        let woodDark = Color(red: 0x6E / 255, green: 0x42 / 255, blue: 0x27 / 255)
+        let brick = Color(red: 0xC2 / 255, green: 0x5A / 255, blue: 0x3F / 255)
+        let brickEdge = Color(red: 0x8E / 255, green: 0x3A / 255, blue: 0x32 / 255)
+        let dust = Color(white: 0.85)
+
+        let rise = min(1, max(0, elapsed / 0.35))
+        let drop = min(1, max(0, (elapsed - 1.9) / 0.3))
+        if drop < 1 {
+            let y = (1 - rise) * 26 + drop * 26
+            let a = 1 - drop
+            for x in [2.0, 20, 76, 93] {   // uprights, with a dark right edge
+                block(x, 6 + y, 2, 56, wood.opacity(a))
+                block(x + 2, 6 + y, 1, 56, woodDark.opacity(a))
+            }
+            for plank in [14.0, 38.0, 60.0] {
+                block(2, plank + y, 92, 3, wood.opacity(a))
+                block(2, plank + 3 + y, 92, 1, woodDark.opacity(a))
+            }
+        }
+
+        let xs = [16.0, 26, 36, 46, 56, 66, 76, 86, 30, 60]
+        let landY = [18.0, 16, 14, 13, 14, 16, 18, 20, 22, 22]
+        for i in 0..<xs.count {
+            let u = (elapsed - (0.35 + Double(i) * 0.15)) / 0.5
+            guard u >= 0, u <= 1.25 else { continue }
+            let y: Double
+            if u <= 0.65 {
+                let fall = u / 0.65
+                y = -6 + (landY[i] + 6) * fall * fall
+            } else {
+                let b = (u - 0.65) / 0.6
+                y = landY[i] - sin(b * .pi) * 3 * (1 - b)   // tiny landing bounce
+            }
+            block(xs[i], y, 4, 2, brick)
+            block(xs[i], y + 2, 4, 1, brickEdge)
+            if u >= 0.65 && u <= 1.1 {   // dust where it lands
+                let d = min(1, (u - 0.65) / 0.45)
+                for k in -1...1 { block(xs[i] + 2 + Double(k) * d * 5, landY[i] - 1 - d * 3, 1, 1, dust.opacity(1 - d)) }
+            }
+        }
     }
 
     static func draw(_ state: House.State, t: Double, ctx: GraphicsContext, px: CGFloat) {
