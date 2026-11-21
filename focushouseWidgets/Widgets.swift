@@ -24,6 +24,12 @@ struct Entry: TimelineEntry {
     var next: WidgetSnapshot.Item? { snap.next(at: date) }
     /// "Show house damage on widgets" is off and the house is hurt: lead with rest.
     var leadsWithRest: Bool { !snap.showDamage && state != .calm && state != .resting }
+    /// Rest just repaired the house: keep the sparkle brief (a few hours).
+    var repairedRecently: Bool {
+        guard let at = snap.repairedAt else { return false }
+        let age = date.timeIntervalSince(at)
+        return age >= 0 && age < 3 * 3600
+    }
 }
 
 struct Provider: TimelineProvider {
@@ -137,6 +143,8 @@ private func duration(_ seconds: TimeInterval) -> String {
 /// The house sprite on its sky, or the rest card when damage is hidden.
 private struct HouseTile: View {
     let entry: Entry
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         if entry.leadsWithRest {
             VStack(spacing: 4) {
@@ -149,10 +157,42 @@ private struct HouseTile: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(House.State.resting.sky)
         } else {
-            Image("house.\(entry.state.rawValue).\(House.level(earned: entry.snap.earned))").pixelArt()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(entry.state.sky)
+            ZStack {
+                Image("house.\(entry.state.rawValue).\(House.level(earned: entry.snap.earned))").pixelArt()
+                    .contentTransition(.opacity)   // crossfade the house when the state changes on reload
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(entry.state.sky)
+                // The rest card (damage hidden) has no house to shimmer over.
+                if entry.repairedRecently && !entry.leadsWithRest && !reduceMotion {
+                    RepairSparkles()
+                        .transition(.opacity)
+                }
+            }
         }
+    }
+}
+
+/// A few pixel sparkles over the house after rest repaired it. WidgetKit can't
+/// run an animation timeline, so these are static; the entry's short window
+/// makes the shimmer brief rather than permanent.
+private struct RepairSparkles: View {
+    /// Positions in the house sprite's own 96×64 pixels, snapped whole.
+    private static let points: [(x: CGFloat, y: CGFloat)] = [(14, 16), (69, 11), (84, 32), (26, 37), (55, 7)]
+
+    var body: some View {
+        Canvas { ctx, size in
+            let px = min(size.width / 96, size.height / 64)
+            let ox = (size.width - 96 * px) / 2
+            let oy = (size.height - 64 * px) / 2
+            for (i, p) in Self.points.enumerated() {
+                let color: Color = i % 2 == 0 ? .white : .gold
+                let x = ox + p.x * px, y = oy + p.y * px
+                ctx.fill(Path(CGRect(x: x - 2 * px, y: y, width: 5 * px, height: px)), with: .color(color))
+                ctx.fill(Path(CGRect(x: x, y: y - 2 * px, width: px, height: 5 * px)), with: .color(color))
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
