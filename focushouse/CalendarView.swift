@@ -37,6 +37,8 @@ struct CalendarView: View {
     var body: some View {
         NavigationStack {
             PixelList {
+                // Inline, not a popover: a popover covers the day below and blocks scrolling.
+                TipView(Hint.calendar)
                 MonthGrid(day: $day, counts: counts)
 
                 Section(pixel: day.formatted(.dateTime.weekday(.wide).day().month())) {
@@ -222,7 +224,6 @@ struct MonthGrid: View {
             }
         }
         .padding(.vertical, 4)
-        .popoverTip(Hint.calendar)
         .onChange(of: day) { if !cal.isDate(day, equalTo: month, toGranularity: .month) { month = day } }
         .sensoryFeedback(.selection, trigger: day)
     }

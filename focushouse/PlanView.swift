@@ -11,6 +11,7 @@ struct PlanView: View {
     @State private var editing: SubtaskEdit?
     @State private var confirmDelete = false
     @State private var timelineDay = Calendar.current.startOfDay(for: .now)   // the day the timeline shows
+    @AppStorage("showFinished") private var showFinished = false
     @Environment(\.dismiss) private var dismiss
 
     /// What the subtask editor sheet opens with.
@@ -145,6 +146,14 @@ struct PlanView: View {
                 }
             }
 
+            if doneCount > 0 {
+                Section {
+                    Button(showFinished ? "Hide finished tasks" : "Show \(doneCount) finished", systemImage: showFinished ? "eye.slash" : "checkmark.circle") {
+                        withAnimation { showFinished.toggle() }
+                    }
+                }
+            }
+
             if let error {
                 Text(error).foregroundStyle(.red)
             }
@@ -255,9 +264,10 @@ struct PlanView: View {
     }
 
     /// Tasks by the day they're scheduled on. `ordered` follows start time, so days are contiguous.
+    /// Finished tasks are left out unless "Show finished" is on.
     private var groups: [(day: Date?, tasks: [PlanTask])] {
         var out: [(day: Date?, tasks: [PlanTask])] = []
-        for task in plan.ordered {
+        for task in plan.ordered where showFinished || !task.done {
             let day = task.start.map(Calendar.current.startOfDay(for:))
             if !out.isEmpty, out[out.count - 1].day == day {
                 out[out.count - 1].tasks.append(task)
@@ -438,6 +448,15 @@ private struct TaskRow: View {
 
     private var isLong: Bool { !task.done && task.minutes > Plan.longTask && task.category != Plan.freeTime }
 
+    private var startPicker: some View {
+        DatePicker("Start time", selection: time, displayedComponents: .hourAndMinute).labelsHidden()
+    }
+
+    /// The student's stress for this task (sets their own score for its title).
+    private var stress: Binding<Int> {
+        Binding(get: { Ratings.score(task.title) ?? 5 }, set: { Ratings.set([task.title], score: $0) })
+    }
+
     /// Setting a new time fixes the task there (same as pinning).
     private var time: Binding<Date> {
         Binding(get: { task.start ?? .now }, set: { task.pinned = $0; onChange() })
@@ -485,14 +504,17 @@ private struct TaskRow: View {
                         Text((start..<end).formatted(.interval.hour().minute()))
                             .font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
                     } else {
-                        HStack(spacing: 4) {
-                            // Time only: the section header already says the day. A date here
-                            // squeezed the end time into a one-letter-wide column and stretched the row.
-                            DatePicker("Start time", selection: time, displayedComponents: .hourAndMinute)
-                                .labelsHidden()
-                            Text("– \(end.formatted(date: .omitted, time: .shortened))")
-                                .foregroundStyle(.secondary).monospacedDigit()
-                                .fixedSize()
+                        // Time only: the section header already says the day. Indented subtasks
+                        // in Edit mode are too narrow for the end time too, so it drops there
+                        // instead of pushing the duration into the drag handle.
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 4) {
+                                startPicker
+                                Text("– \(end.formatted(date: .omitted, time: .shortened))")
+                                    .foregroundStyle(.secondary).monospacedDigit()
+                                    .fixedSize()
+                            }
+                            startPicker
                         }
                         .font(.subheadline)
                     }
@@ -536,6 +558,12 @@ private struct TaskRow: View {
                 Label("Low", systemImage: "arrow.down").tag(2)
             }
             .pickerStyle(.menu)
+            if task.category != Plan.freeTime {
+                Picker("Stress", systemImage: "bolt", selection: stress) {
+                    ForEach((1...10).reversed(), id: \.self) { Text("\($0)/10 · \(Rating(score: $0).effort)").tag($0) }
+                }
+                .pickerStyle(.menu)
+            }
             if !task.done {
                 Section(pixel: "Need more time?") {
                     ForEach([15, 30, 60], id: \.self) { minutes in

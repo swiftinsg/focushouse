@@ -20,6 +20,7 @@ import SwiftData
     func tick(_ task: PlanTask) {
         guard !task.done else { return }
         task.setDone(true)
+        Reminders.cancel([task])
         guard task.category != Plan.freeTime, task.checkIn == PlanTask.CheckInState.none.rawValue else { return }
         task.checkIn = PlanTask.CheckInState.waiting.rawValue
         if !queue.contains(where: { $0 === task }) { queue.append(task) }
@@ -27,6 +28,7 @@ import SwiftData
 
     func untick(_ task: PlanTask) {
         task.setDone(false)
+        Reminders.cancel([task], review: true)   // the next reflow re-arms its reminders
         if task.checkIn == PlanTask.CheckInState.waiting.rawValue { task.checkIn = PlanTask.CheckInState.none.rawValue }
         queue.removeAll { $0 === task }
     }
@@ -46,6 +48,7 @@ import SwiftData
         task.note = String(note.trimmingCharacters(in: .whitespacesAndNewlines).prefix(300))
         task.reflectedAt = now
         task.checkIn = PlanTask.CheckInState.answered.rawValue
+        Reminders.cancel([task], review: true)
         queue.removeAll { $0 === task }
         let history = Reflections.history(in: task.modelContext).compactMap(Ratings.Check.init)
         if let check = Ratings.Check(task) { Task { await Ratings.reflect(check, history: history) } }   // how it felt moves its stress a step
@@ -59,6 +62,7 @@ import SwiftData
     /// No answer: the task stays done but never earns bricks.
     func skip(_ task: PlanTask) {
         task.checkIn = PlanTask.CheckInState.skipped.rawValue
+        Reminders.cancel([task], review: true)
         queue.removeAll { $0 === task }
     }
 

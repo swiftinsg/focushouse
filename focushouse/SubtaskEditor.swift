@@ -10,6 +10,7 @@ struct SubtaskEditor: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focused: PersistentIdentifier?
     @State private var stress: Int?   // nil until the slider is moved
+    @State private var own: [PersistentIdentifier: Int] = [:]   // one subtask's stress, set on its row
     @AppStorage("ratings") private var ratingData = Data()
 
     var body: some View {
@@ -25,7 +26,9 @@ struct SubtaskEditor: View {
 
                 Section {
                     ForEach(subtasks) { task in
-                        SubtaskField(task: task, focused: $focused)
+                        SubtaskField(task: task, focused: $focused, stress: Binding(
+                            get: { own[task.persistentModelID] ?? stress ?? Ratings.score(task.title, in: Ratings.load(ratingData)) ?? 5 },
+                            set: { own[task.persistentModelID] = $0 }))
                     }
                     .onDelete { offsets in
                         let gone = offsets.map { subtasks[$0] }
@@ -39,7 +42,7 @@ struct SubtaskEditor: View {
                 } header: {
                     Text("Subtasks").pixelHeader()
                 } footer: {
-                    Text("Your subtasks are saved, so next time the AI suggests similar ones for similar tasks.")
+                    Text("Tap a subtask's ⚡︎ to set its own stress; the slider above sets them all. Your subtasks are saved, so next time the AI suggests similar ones for similar tasks.")
                 }
             }
             .toolbar {
@@ -76,13 +79,15 @@ struct SubtaskEditor: View {
         for (i, task) in list.enumerated() { task.order = i }
         plan.saveSubtasks(subtasks, name: name)
         if let stress { Ratings.set(subtasks.map(\.title), score: stress) }
+        for task in subtasks { if let score = own[task.persistentModelID] { Ratings.set([task.title], score: score) } }
     }
 }
 
-/// One subtask row: done toggle, title field, duration picker.
+/// One subtask row: done toggle, title field, stress and duration pickers.
 private struct SubtaskField: View {
     @Bindable var task: PlanTask
     var focused: FocusState<PersistentIdentifier?>.Binding
+    @Binding var stress: Int
 
     var body: some View {
         HStack(spacing: 12) {
@@ -91,6 +96,20 @@ private struct SubtaskField: View {
             TextField("Subtask", text: $task.title)
                 .focused(focused, equals: task.persistentModelID)
                 .submitLabel(.next)
+
+            Menu {
+                Picker("Stress", selection: $stress) {
+                    ForEach((1...10).reversed(), id: \.self) { Text("\($0)/10 · \(Rating(score: $0).effort)").tag($0) }
+                }
+            } label: {
+                Text("\(Image(systemName: "bolt.fill")) \(stress)")
+                    .font(.subheadline.weight(.medium)).monospacedDigit()
+                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .background(.fill.tertiary, in: .capsule)
+            }
+            .buttonStyle(.plain)
+            .fixedSize()
+            .accessibilityLabel("Stress, \(stress) out of 10")
 
             Menu {
                 Picker("Duration", selection: $task.minutes) {
