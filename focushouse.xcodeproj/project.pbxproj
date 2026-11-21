@@ -40,6 +40,7 @@
 		6A27B4E181CDF13A102A842D /* WidgetSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B20CF3834A2FE4D4ECD38B /* WidgetSync.swift */; };
 		73D3FF0F164626E1528658BD /* Hints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FEFBB34BDDD22D97DFEBAB6 /* Hints.swift */; };
 		744FA7FBAFA177D40E7245AC /* Tester.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A37C5B66D840AF6B00801D1 /* Tester.swift */; };
+		7696CCD3EE21E135A8F85CB3 /* BrickLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC6347E384FCA391782DADE /* BrickLoader.swift */; };
 		8187886910D17D7D67F448E4 /* PlannerEval.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F93E3356CC075F06AB283A6 /* PlannerEval.swift */; };
 		8311D8BCADDFB14B4E4315EA /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E75D038DBE0B793FD049BAC /* WidgetSnapshot.swift */; };
 		83980AE54E113EEF3B280707 /* FocusHouseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4552A590898BDE41DC5EE887 /* FocusHouseApp.swift */; };
@@ -183,6 +184,7 @@
 		D0241D3BBC13839E018CBAFE /* StudyMaterialTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyMaterialTests.swift; sourceTree = "<group>"; };
 		D0B42C0A62C1F205F9108762 /* focushouseWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = focushouseWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D86F0C7B0429D79C6C6BD7B6 /* Widgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Widgets.swift; sourceTree = "<group>"; };
+		DAC6347E384FCA391782DADE /* BrickLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrickLoader.swift; sourceTree = "<group>"; };
 		ED6C1CF510BA3EC7E4327A73 /* room.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = room.json; sourceTree = "<group>"; };
 		EFDA20FDB3B47659284A81AF /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		F010BD141A1EC48FCE43D7F4 /* HouseRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HouseRules.swift; sourceTree = "<group>"; };
@@ -264,6 +266,7 @@
 			children = (
 				ABCE8B42060DDB0EEAE1D1F2 /* Assets.xcassets */,
 				C83D38C3246B36AB6D14BB4E /* BrickBurst.swift */,
+				DAC6347E384FCA391782DADE /* BrickLoader.swift */,
 				C1CD91A0CDE5CA574A273977 /* CalendarSync.swift */,
 				9DB59EF4946F3158394F640C /* CalendarTipView.swift */,
 				6A4AA7204167A77945CC2395 /* CalendarView.swift */,
@@ -520,6 +523,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FE32443D19E8D7E91F633599 /* BrickBurst.swift in Sources */,
+				7696CCD3EE21E135A8F85CB3 /* BrickLoader.swift in Sources */,
 				E38B3C4377E0969A56773949 /* CalendarSync.swift in Sources */,
 				1E33914E6B6306BCABD9F260 /* CalendarTipView.swift in Sources */,
 				9B117F2C1C8F4A818CEBB78A /* CalendarView.swift in Sources */,

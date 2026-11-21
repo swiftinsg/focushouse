@@ -49,20 +49,9 @@ struct CheckInSheet: View {
                     HStack(spacing: 8) {
                         ForEach(Self.feelings.indices, id: \.self) { i in
                             let (emoji, caption) = Self.feelings[i]
-                            let selected = feeling == i + 1
-                            Button {
+                            FeelingButton(emoji: emoji, caption: caption, selected: feeling == i + 1) {
                                 feeling = i + 1
-                            } label: {
-                                VStack(spacing: 4) {
-                                    Text(emoji).font(.largeTitle)
-                                    Text(caption).font(.caption2).foregroundStyle(.secondary)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .overlay(Rectangle().strokeBorder(selected ? Color.ink : .clear, lineWidth: 3))
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(caption)
-                            .accessibilityAddTraits(selected ? .isSelected : [])
                         }
                     }
                 }
@@ -121,6 +110,40 @@ struct CheckInSheet: View {
         }
         .presentationDetents([.large])
         .interactiveDismissDisabled(feeling != nil)
+    }
+}
+
+/// One feeling face: it wiggles when tapped, and the chosen one pops.
+private struct FeelingButton: View {
+    let emoji: String
+    let caption: String
+    let selected: Bool
+    let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var wiggling = false
+
+    var body: some View {
+        Button {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.15, dampingFraction: 0.45)) { wiggling = true }
+            Task {
+                try? await Task.sleep(for: .milliseconds(110))
+                withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.35)) { wiggling = false }
+            }
+            action()
+        } label: {
+            VStack(spacing: 4) {
+                Text(emoji).font(.largeTitle)
+                Text(caption).font(.caption2).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .overlay(Rectangle().strokeBorder(selected ? Color.ink : .clear, lineWidth: 3))
+            .rotationEffect(.degrees(wiggling && !reduceMotion ? -7 : 0))
+            .scaleEffect(selected && !reduceMotion ? 1.12 : 1)
+            .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.45), value: selected)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(caption)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
