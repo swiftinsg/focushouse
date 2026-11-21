@@ -11,6 +11,7 @@ struct PlanTimeline: View {
     @State private var dragging = false   // a block is being moved: the timeline holds still
     @State private var scroll = ScrollPosition(edge: .top)
     @State private var askPin: PlanTask?   // just dragged: offer to lock it there
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Pinch to zoom; remembered between visits.
     @AppStorage("timelineHourHeight") private var savedHourHeight = 120.0
     @GestureState private var pinch: CGFloat = 1
@@ -199,10 +200,24 @@ struct PlanTimeline: View {
         if cal.isDateInToday(day) {
             HStack(spacing: 0) {
                 Circle().fill(.red).frame(width: 8, height: 8)
+                    .overlay {
+                        // A soft ring breathes out from the dot every 1.6 s. It's an
+                        // overlay, so the line and dot never shift in the layout.
+                        if !reduceMotion {
+                            TimelineView(.animation(minimumInterval: 1 / 12)) { timeline in
+                                let phase = timeline.date.timeIntervalSinceReferenceDate
+                                    .truncatingRemainder(dividingBy: 1.6) / 1.6
+                                Circle()
+                                    .stroke(.red.opacity(0.55 * (1 - phase)), lineWidth: 1.5)
+                                    .frame(width: 8 + 12 * phase, height: 8 + 12 * phase)
+                            }
+                        }
+                    }
                 Rectangle().fill(.red).frame(height: 1.5)
             }
             .padding(.leading, gutter - 4)
             .offset(y: y(.now, from: from) + top - 4)
+            .allowsHitTesting(false)   // decoration over the blocks must not eat drags
             .accessibilityHidden(true)
         }
     }

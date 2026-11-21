@@ -34,6 +34,23 @@ import WidgetKit
             .map { DateInterval(start: $0.start!, end: $0.end!) }
             + events.filter { soon.contains($0.start) && ratings[Ratings.key($0.title)]?.compulsory != false }
             .map { DateInterval(start: $0.start, duration: TimeInterval($0.minutes * 60)) }
+        // Rest repairs the house quietly in the background. Note when its state
+        // improved since the last snapshot so the widget can sparkle for a while.
+        let existing = WidgetSnapshot.load()
+        let restLog = RestLog.load(RestLog.defaults.data(forKey: "restLog") ?? Data())
+        let state = House.state(streak: status.streak, log: restLog, now: now)
+        let order: [House.State] = [.calm, .resting, .stressed, .overloaded, .crumbling]
+        let rank = { (s: House.State) in order.firstIndex(of: s) ?? 0 }
+        let previous = d.string(forKey: "widgetHouseState").flatMap { House.State(rawValue: $0) }
+        let improved = previous.map { rank(state) < rank($0) } ?? false
+        let sparkleWindow: TimeInterval = 3 * 3600
+        if improved, existing.repairedAt.map({ now.timeIntervalSince($0) > sparkleWindow }) ?? true {
+            snap.repairedAt = now
+        } else {
+            snap.repairedAt = existing.repairedAt.flatMap { now.timeIntervalSince($0) < sparkleWindow ? $0 : nil }
+        }
+        d.set(state.rawValue, forKey: "widgetHouseState")
+
         snap.showDamage = d.object(forKey: "showDamage") as? Bool ?? true
         snap.insight = d.string(forKey: "insight") ?? ""
         snap.save()

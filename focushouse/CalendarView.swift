@@ -201,6 +201,8 @@ struct MonthGrid: View {
     var counts: [Date: Int]
     private let full = 6   // ponytail: fixed scale; base it on the student's busiest day if 6 feels wrong
     @State private var month = Date.now
+    @State private var revealed = false   // rings sweep in when the grid appears / the month changes
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let cal = Calendar.current
 
     var body: some View {
@@ -218,20 +220,23 @@ struct MonthGrid: View {
                 ForEach(Array(Self.weekdaySymbols(cal).enumerated()), id: \.offset) { _, symbol in
                     Text(symbol).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                 }
-                ForEach(Array(Self.days(in: month, calendar: cal).enumerated()), id: \.offset) { _, date in
-                    if let date { cell(date) } else { Color.clear.frame(height: 40) }
+                ForEach(Array(Self.days(in: month, calendar: cal).enumerated()), id: \.offset) { index, date in
+                    if let date { cell(date, index: index) } else { Color.clear.frame(height: 40) }
                 }
             }
         }
         .padding(.vertical, 4)
+        .onAppear { reveal() }
+        .onChange(of: month) { reveal() }
         .onChange(of: day) { if !cal.isDate(day, equalTo: month, toGranularity: .month) { month = day } }
         .sensoryFeedback(.selection, trigger: day)
     }
 
-    private func cell(_ date: Date) -> some View {
+    private func cell(_ date: Date, index: Int) -> some View {
         let selected = cal.isDate(date, inSameDayAs: day)
         let today = cal.isDateInToday(date)
         let count = counts[date] ?? 0
+        let fill = Self.fill(count, full: full)
         return Button { day = date } label: {
             Text(date.formatted(.dateTime.day()))
                 .font(.callout.weight(today || selected ? .bold : .regular))
@@ -240,9 +245,13 @@ struct MonthGrid: View {
                 .background(selected ? Color.accentColor : .clear, in: .circle)
                 .overlay {
                     Circle().stroke(.fill.tertiary, lineWidth: 3).opacity(count > 0 ? 1 : 0)
-                    Circle().trim(from: 0, to: Self.fill(count, full: full))
+                    Circle().trim(from: 0, to: revealed ? fill : 0)
                         .stroke(Color.grass, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                         .rotationEffect(.degrees(-90))
+                        // A day at a time: the small delay makes the fill ripple across the month.
+                        // The reset back to 0 is instant (animation is nil while revealed is false).
+                        .animation(reduceMotion || !revealed ? nil : .easeOut(duration: 0.4).delay(Double(index) * 0.02),
+                                   value: revealed)
                 }
                 .padding(3)
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -251,6 +260,16 @@ struct MonthGrid: View {
         .buttonStyle(.plain)
         .accessibilityLabel(date.formatted(date: .complete, time: .omitted) + (count > 0 ? ", \(count) to do" : ""))
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    /// Rings jump back to empty, then sweep in day by day. With Reduce Motion
+    /// they simply appear at their fill.
+    private func reveal() {
+        guard !reduceMotion else { revealed = true; return }
+        revealed = false
+        // Let the empty frame render before the sweep, so changing month doesn't
+        // just crossfade the old month's rings.
+        Task { @MainActor in revealed = true }
     }
 
     private func shift(_ months: Int) {

@@ -25,6 +25,9 @@ struct WidgetSnapshot: Codable, Equatable {
     /// Scheduled tasks and lessons: phone-down time during them isn't rest.
     var busy: [DateInterval] = []
     var showDamage = true
+    /// When rest last repaired the house, for the widget's brief sparkle. Optional
+    /// so old snapshots (written before this field) still decode.
+    var repairedAt: Date? = nil
     var insight = ""
 
     var tasks: [Item] { today.filter { !$0.free } }
