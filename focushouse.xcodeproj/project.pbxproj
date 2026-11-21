@@ -79,6 +79,7 @@
 		F0B86E967EA83C98F3383CB8 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFF24F9D17F79337BF55305A /* HomeView.swift */; };
 		FBD48DF6458548D1899A696B /* PlanTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5798B29D351AC822D6EC73 /* PlanTimeline.swift */; };
 		FD88131FF6B7A549CB0DBE6F /* TimetableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7535BBAB426B0F10326A64D6 /* TimetableTests.swift */; };
+		FE32443D19E8D7E91F633599 /* BrickBurst.swift in Sources */ = {isa = PBXBuildFile; fileRef = C83D38C3246B36AB6D14BB4E /* BrickBurst.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -176,6 +177,7 @@
 		C35969715D056595DBCEF12B /* TodoItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoItem.swift; sourceTree = "<group>"; };
 		C604BE4A7FB6BFDB26C56247 /* House.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = House.swift; sourceTree = "<group>"; };
 		C769B08F1B6ED6CBA67C1E39 /* PinTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinTests.swift; sourceTree = "<group>"; };
+		C83D38C3246B36AB6D14BB4E /* BrickBurst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrickBurst.swift; sourceTree = "<group>"; };
 		C90CE457CBBC739C27E725DA /* furniture_hobbies.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = furniture_hobbies.json; sourceTree = "<group>"; };
 		CB64AA238AFF46ECA8AE2261 /* Proof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Proof.swift; sourceTree = "<group>"; };
 		D0241D3BBC13839E018CBAFE /* StudyMaterialTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyMaterialTests.swift; sourceTree = "<group>"; };
@@ -261,6 +263,7 @@
 			isa = PBXGroup;
 			children = (
 				ABCE8B42060DDB0EEAE1D1F2 /* Assets.xcassets */,
+				C83D38C3246B36AB6D14BB4E /* BrickBurst.swift */,
 				C1CD91A0CDE5CA574A273977 /* CalendarSync.swift */,
 				9DB59EF4946F3158394F640C /* CalendarTipView.swift */,
 				6A4AA7204167A77945CC2395 /* CalendarView.swift */,
@@ -516,6 +519,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FE32443D19E8D7E91F633599 /* BrickBurst.swift in Sources */,
 				E38B3C4377E0969A56773949 /* CalendarSync.swift in Sources */,
 				1E33914E6B6306BCABD9F260 /* CalendarTipView.swift in Sources */,
 				9B117F2C1C8F4A818CEBB78A /* CalendarView.swift in Sources */,

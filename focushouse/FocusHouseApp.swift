@@ -28,6 +28,7 @@ struct FocusHouseApp: App {
                 Tab("Calendar", image: "tab.calendar") { CalendarView() }
             }
             .tint(.navy)
+            .overlay { BrickBurstOverlay() }   // bricks from a check-in, over every tab
             .onOpenURL { WidgetSync.open($0, container.mainContext) }
             // Calendar edits made outside the app (or on a synced Google calendar).
             .onReceive(NotificationCenter.default.publisher(for: .EKEventStoreChanged)) { _ in pullCalendar() }

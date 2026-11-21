@@ -35,6 +35,7 @@ import SwiftData
 
     /// Saves the answer. A corrected time replaces the guess in the student's pace.
     func save(_ task: PlanTask, minutes: Int, feeling: Int, note: String, now: Date = .now) {
+        let before = Self.earned(task.modelContext)
         let minutes = max(1, minutes)
         if let estimate = task.estimate {
             if let old = task.actual {
@@ -50,8 +51,17 @@ import SwiftData
         task.checkIn = PlanTask.CheckInState.answered.rawValue
         Reminders.cancel([task], review: true)
         queue.removeAll { $0 === task }
+        BrickBurst.shared.fire(Self.earned(task.modelContext) - before)   // bricks fly up to the counter
         let history = Reflections.history(in: task.modelContext).compactMap(Ratings.Check.init)
         if let check = Ratings.Check(task) { Task { await Ratings.reflect(check, history: history) } }   // how it felt moves its stress a step
+    }
+
+    /// Bricks earned all-time, for the difference a check-in makes.
+    private static func earned(_ context: ModelContext?) -> Int {
+        guard let context else { return 0 }
+        let tasks = (try? context.fetch(FetchDescriptor<PlanTask>())) ?? []
+        let todos = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
+        return HouseStatus(tasks: tasks, todos: todos, events: [], ratings: Ratings.saved()).earned
     }
 
     /// Closed without answering: asked again next launch, no bricks until then.
