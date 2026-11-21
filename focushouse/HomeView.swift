@@ -364,7 +364,8 @@ private struct HouseStage: View {
     let reduceMotion: Bool
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 12)) { timeline in
+        // 12 fps only while a level-up plays; otherwise the sky just needs the clock.
+        TimelineView(.animation(minimumInterval: build == nil ? 30 : 1 / 12)) { timeline in
             let now = timeline.date
             let sky = Color.sky(for: state, at: now)
             let night = SkyClock.nightAmount(state: state, at: now)
@@ -373,6 +374,7 @@ private struct HouseStage: View {
             ZStack {
                 if let build { HouseScene(state: state, level: build.from, night: night, sky: sky) }
                 HouseScene(state: state, level: level, night: night, sky: sky).opacity(fade)
+                if state == .calm || state == .resting { FrontStepCat(reduceMotion: reduceMotion) }   // Pommy hides when stressed
                 if build != nil {
                     Canvas { ctx, size in
                         if !reduceMotion { HouseScene.drawBuild(elapsed: elapsed, ctx: ctx, px: size.width / HouseScene.width) }
@@ -387,6 +389,28 @@ private struct HouseStage: View {
     private func fade(for build: LevelBuild?, elapsed: Double) -> Double {
         guard build != nil else { return 1 }
         return reduceMotion ? min(1, elapsed / 0.35) : min(1, max(0, (elapsed - 2) / 0.5))
+    }
+}
+
+/// Pommy napping on the front step, between the door and the right bush
+/// (sprite pixels 44–53, on the ground at row 62), drawn at half the room's scale.
+private struct FrontStepCat: View {
+    let reduceMotion: Bool
+
+    var body: some View {
+        let frames = RoomView.art.catSleep
+        GeometryReader { geo in
+            let px = geo.size.width / HouseScene.width
+            TimelineView(.periodic(from: .now, by: 1.6)) { timeline in
+                let i = reduceMotion ? 0 : Int(timeline.date.timeIntervalSinceReferenceDate / 1.6) % max(1, frames.count)
+                if frames.indices.contains(i) {
+                    PixelSprite(grid: frames[i])
+                        .frame(width: 9 * px)
+                        .position(x: 48.5 * px, y: (62 - 3.5) * px)
+                }
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
