@@ -139,13 +139,14 @@ struct NewPlanView: View {
                 }
 
                 Section {
+                    if isWorking { BrickLoader() }
                     VStack(spacing: 12) {
                         if Planner.isAvailable {
                             Button {
                                 Task { await makePlan() }
                             } label: {
                                 HStack(spacing: 8) {
-                                    if isWorking { ProgressView() } else { Image(systemName: "sparkles") }
+                                    if !isWorking { Image(systemName: "sparkles") }
                                     Text(isWorking ? "Planning…" : "Make my plan")
                                 }
                                 .font(.headline)
@@ -205,6 +206,7 @@ struct NewPlanView: View {
             plan.replaceTasks(with: draft)
             if let stress { Ratings.set(plan.tasks.map(\.title) + (mode == .goal ? [input] : []), score: stress) }
             if autoAddToCalendar { _ = try? await CalendarSync.add(plan) }
+            FreshPlan.mark(plan)   // PlanView deals the new rows in
             onCreate(plan)
         } catch let asked as PlannerError where asked.isQuestion {
             question = asked.localizedDescription

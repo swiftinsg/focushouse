@@ -19,6 +19,9 @@ struct PlanView: View {
     @State private var materialNote: String?
     @FocusState private var materialsFocused: Bool
     @State private var materialsBefore = ""     // to re-plan only when typing changed it
+    @State private var dealt = 0                // rows dealt in so far
+    @State private var dealing = false          // a fresh plan's rows are landing
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
 
     /// What the subtask editor sheet opens with.
@@ -26,6 +29,13 @@ struct PlanView: View {
         let id = UUID()
         var name: String
         var tasks: [PlanTask]
+    }
+
+    init(plan: Plan) {
+        _plan = Bindable(plan)
+        // A plan the AI just made starts with its rows off the table, so nothing
+        // flashes in before the deal.
+        _dealing = State(initialValue: FreshPlan.contains(plan))
     }
 
     var body: some View {
@@ -62,6 +72,7 @@ struct PlanView: View {
             // as saveSubtasks does. Then pick up Calendar changes made since last time.
             let blank = plan.tasks.filter { !$0.done && $0.title.trimmingCharacters(in: .whitespaces).isEmpty }
             if blank.isEmpty { plan.reflow() } else { plan.delete(blank) }
+            if FreshPlan.consume(plan) { dealIn() }
         }
     }
 
@@ -88,6 +99,13 @@ struct PlanView: View {
                 .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 4, trailing: 4))
             }
 
+            if isWorking {
+                Section {
+                    BrickLoader()
+                        .padding(.vertical, 4)
+                }
+            }
+
             if plan.mode == .goal { goalSection }
 
             if plan.tasks.isEmpty {
@@ -108,12 +126,14 @@ struct PlanView: View {
                                       onChange: { plan.reflow() },
                                       onEdit: { editing = SubtaskEdit(name: block.parent, tasks: subtasks) },
                                       onDelete: { plan.delete(subtasks) })
+                                .dealIn(shown: dealtIn(block.tasks[0]))
                         }
                         ForEach(block.tasks) { task in
                             TaskRow(task: task, onChange: { plan.reflow() }, onPushBack: { plan.pushBack(task, by: $0) },
                                     onEdit: { editSubtasks(of: task) }, onDelete: { plan.delete([task]) },
                                     onAddBreaks: { plan.addBreaks(to: task, rest: $0) })
                                 .padding(.leading, block.parent.isEmpty ? 0 : 28)
+                                .dealIn(shown: dealtIn(task))
                         }
                         .onDelete { plan.delete($0.map { block.tasks[$0] }) }
                         .onMove { from, to in
@@ -444,6 +464,28 @@ struct PlanView: View {
 
     private var hasPending: Bool { plan.tasks.contains { !$0.done } }
 
+    /// Whether this row is on the table yet; all of them unless a deal is running.
+    private func dealtIn(_ task: PlanTask) -> Bool {
+        guard dealing else { return true }
+        return (plan.ordered.firstIndex { $0 === task } ?? 0) < dealt
+    }
+
+    /// Deals the rows in from the right, one every 60 ms: for the plan the AI just
+    /// made, and after a re-plan. Only then, never on a redraw or reflow.
+    private func dealIn() {
+        let count = plan.ordered.count
+        dealt = 0
+        dealing = count > 0 && !reduceMotion
+        guard dealing else { return }   // Reduce Motion: the end state, no motion
+        Task {
+            for i in 1...count {
+                try? await Task.sleep(for: .milliseconds(60))
+                dealt = i
+            }
+            dealing = false
+        }
+    }
+
     /// Runs an AI re-plan with a spinner, then re-adds to Calendar if auto-add is on.
     private func run(_ work: () async throws -> Void) async {
         isWorking = true
@@ -451,6 +493,7 @@ struct PlanView: View {
         defer { isWorking = false }
         do {
             try await work()
+            dealIn()   // the new rows land once the loader goes
             if autoAddToCalendar { await addToCalendar() }
         } catch {
             self.error = error.localizedDescription
@@ -682,4 +725,32 @@ let taskDurations = [5, 10, 15, 20, 25, 30, 40, 45, 50, 60, 75, 90, 105, 120, 15
 func hoursAndMinutes(_ minutes: Int) -> String {
     if minutes < 60 { return "\(minutes) min" }
     return minutes % 60 == 0 ? "\(minutes / 60) h" : "\(minutes / 60) h \(minutes % 60) min"
+}
+
+/// The plan the AI just made: PlanView deals its rows in on first show.
+// ponytail: a hand-off set rather than a flag on the model, so no schema change.
+@MainActor enum FreshPlan {
+    private static var ids: Set<PersistentIdentifier> = []
+    static func mark(_ plan: Plan) { ids.insert(plan.persistentModelID) }
+    static func contains(_ plan: Plan) -> Bool { ids.contains(plan.persistentModelID) }
+    static func consume(_ plan: Plan) -> Bool { ids.remove(plan.persistentModelID) != nil }
+}
+
+/// A row dealt in from the right like a card: slides in with a slight tilt and
+/// settles. Reduce Motion shows it in place.
+private struct DealIn: ViewModifier {
+    let shown: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .offset(x: shown || reduceMotion ? 0 : 80)
+            .rotationEffect(.degrees(shown || reduceMotion ? 0 : 4))
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.75), value: shown)
+    }
+}
+
+private extension View {
+    func dealIn(shown: Bool) -> some View { modifier(DealIn(shown: shown)) }
 }
