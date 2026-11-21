@@ -14,6 +14,8 @@ struct CalendarView: View {
     @State private var deleting: EKEvent?   // a repeating event, asking which ones
     @State private var calendarError: String?
     @State private var addingEvent = false
+    @State private var deletingPlan: Plan?
+    @Environment(\.modelContext) private var context
     /// Calendar events ticked off here ("id|start", newline-separated). They stay in
     /// Calendar; focushouse just stops showing them. ponytail: grows forever, prune old days if it ever matters.
     @AppStorage("doneEvents") private var doneEvents = ""
@@ -38,38 +40,8 @@ struct CalendarView: View {
                 MonthGrid(day: $day, counts: counts)
 
                 Section(pixel: day.formatted(.dateTime.weekday(.wide).day().month())) {
-                    ForEach(tasksOnDay) { task in
-                        HStack(spacing: 12) {
-                            BouncyCheck(done: task.done, label: task.done ? "Mark not done" : "Mark done") {
-                                CheckIn.shared.toggle(task)
-                                task.plan?.reflow()   // re-arm reminders, as in PlanView
-                            }
-
-                            if let plan = task.plan {
-                                NavigationLink(value: plan) { row(task) }
-                            } else {
-                                row(task)
-                            }
-                        }
-                        .transition(.gone)
-                        .swipeActions {
-                            if task.eventID != nil {
-                                Button("Remove from Calendar", systemImage: "calendar.badge.minus", role: .destructive) {
-                                    CalendarSync.remove([task])
-                                }
-                            }
-                        }
-                    }
-                    ForEach(todosOnDay) { todo in
-                        HStack(spacing: 12) {
-                            TodoTick(todo: todo, size: .title2)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(todo.name)
-                                Text("Due · not planned yet").font(.caption).foregroundStyle(.orange)
-                            }
-                        }
-                        .transition(.gone)
-                    }
+                    ForEach(tasksOnDay) { taskRow($0) }
+                    ForEach(todosOnDay) { todoRow($0) }
                     if tasksOnDay.isEmpty && todosOnDay.isEmpty && shownEvents.isEmpty {
                         Text("Nothing on this day").foregroundStyle(.secondary)
                     }
@@ -105,6 +77,11 @@ struct CalendarView: View {
                 Button("Delete This Event Only", role: .destructive) { delete(event) }
                 Button("Delete All Future Events", role: .destructive) { delete(event, future: true) }
             }
+            .confirmationDialog("Delete \(deletingPlan.map { $0.title.isEmpty ? "this plan" : "“\($0.title)”" } ?? "")?",
+                                isPresented: Binding(get: { deletingPlan != nil }, set: { if !$0 { deletingPlan = nil } }),
+                                titleVisibility: .visible, presenting: deletingPlan) { plan in
+                Button("Delete plan", role: .destructive) { withAnimation { plan.deletePlan() } }
+            } message: { _ in Text("All its tasks, reminders and Calendar events go too.") }
             .alert("Calendar", isPresented: Binding(get: { calendarError != nil }, set: { if !$0 { calendarError = nil } })) {
                 Button("OK") {}
             } message: { Text(calendarError ?? "") }
@@ -128,6 +105,60 @@ struct CalendarView: View {
         do { try CalendarSync.delete(event, future: future) }
         catch { calendarError = error.localizedDescription }
         Task { await loadEvents() }
+    }
+
+    private func taskRow(_ task: PlanTask) -> some View {
+        HStack(spacing: 12) {
+            BouncyCheck(done: task.done, label: task.done ? "Mark not done" : "Mark done") {
+                CheckIn.shared.toggle(task)
+                task.plan?.reflow()   // re-arm reminders, as in PlanView
+            }
+
+            if let plan = task.plan {
+                NavigationLink(value: plan) { row(task) }
+            } else {
+                row(task)
+            }
+        }
+        .transition(.gone)
+        .swipeActions {
+            Button("Delete", systemImage: "trash", role: .destructive) { deleteTask(task) }
+            if task.eventID != nil {
+                Button("Remove from Calendar", systemImage: "calendar.badge.minus") {
+                    CalendarSync.remove([task])
+                }
+            }
+        }
+        .contextMenu {
+            Button("Delete task", systemImage: "trash", role: .destructive) { deleteTask(task) }
+            if let plan = task.plan {
+                Button("Delete whole plan", systemImage: "trash", role: .destructive) { deletingPlan = plan }
+            }
+        }
+    }
+
+    private func todoRow(_ todo: TodoItem) -> some View {
+        HStack(spacing: 12) {
+            TodoTick(todo: todo, size: .title2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(todo.name)
+                Text("Due · not planned yet").font(.caption).foregroundStyle(.orange)
+            }
+        }
+        .transition(.gone)
+        .swipeActions {
+            Button("Delete", systemImage: "trash", role: .destructive) { withAnimation { context.delete(todo) } }
+        }
+        .contextMenu {
+            Button("Delete to-do", systemImage: "trash", role: .destructive) { withAnimation { context.delete(todo) } }
+        }
+    }
+
+    private func deleteTask(_ task: PlanTask) {
+        withAnimation {
+            if let plan = task.plan { plan.delete([task]) }
+            else { CalendarSync.remove([task]); Reminders.cancel([task]); context.delete(task) }
+        }
     }
 
     private func key(_ event: EKEvent) -> String {

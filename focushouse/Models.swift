@@ -154,6 +154,22 @@ extension Plan {
         return task
     }
 
+    /// A new task on `date`'s day of the plan, after that day's tasks rather than
+    /// after the whole plan (which put a goal's new task on its last day).
+    @MainActor @discardableResult func addTask(on date: Date) -> PlanTask {
+        let cal = Calendar.current
+        let day = cal.startOfDay(for: date)
+        let index = (cal.dateComponents([.day], from: cal.startOfDay(for: start), to: day).day ?? 0) + 1
+        let task = PlanTask(title: "New task", category: "other", minutes: 30, day: min(max(index, 1), days), order: 0)
+        var list = ordered
+        let at = (list.lastIndex { $0.start.map { cal.startOfDay(for: $0) <= day } ?? false } ?? -1) + 1
+        list.insert(task, at: at)
+        tasks.append(task)
+        for (i, t) in list.enumerated() { t.order = i }
+        reflow()
+        return task
+    }
+
     /// Groups `subtasks` under `name`. Blank subtasks are dropped, and a single
     /// subtask with the item's own name stays a plain task. A breakdown of 2+
     /// subtasks is remembered so the AI suggests similar ones next time.

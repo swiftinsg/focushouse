@@ -126,6 +126,11 @@ struct PlanView: View {
                         Spacer()
                         Text(hoursAndMinutes(group.tasks.reduce(0) { $0 + $1.minutes }))
                             .monospacedDigit()
+                        if let day = group.day {
+                            Button("Add task to \(dayTitle(day))", systemImage: "plus") { plan.addTask(on: day) }
+                                .labelStyle(.iconOnly)
+                                .buttonStyle(.borderless)
+                        }
                     }
                 } footer: {
                     if let day = group.day {
@@ -346,11 +351,12 @@ struct PlanView: View {
         plan.reflow()
     }
 
+    /// The toolbar's +: today, or the plan's nearest day when today is outside it.
     private func addTask() {
-        let last = plan.ordered.last
-        plan.tasks.append(PlanTask(title: "New task", category: "other", minutes: 30,
-                                   day: last?.day ?? 1, order: (last?.order ?? -1) + 1))
-        plan.reflow()
+        let cal = Calendar.current
+        let first = cal.startOfDay(for: plan.start)
+        let last = cal.date(byAdding: .day, value: max(plan.days, 1) - 1, to: first) ?? first
+        plan.addTask(on: min(max(cal.startOfDay(for: .now), first), last))
     }
 
     private var hasPending: Bool { plan.tasks.contains { !$0.done } }

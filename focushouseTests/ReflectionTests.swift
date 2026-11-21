@@ -115,6 +115,22 @@ import Testing
         #expect(plan.tasks.count == 5)
     }
 
+    /// A goal's + adds to the day asked for, not after the goal's last task.
+    @Test func addTaskLandsOnItsDay() throws {
+        let container = try ModelContainer(for: Plan.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let plan = Plan(title: "t", mode: .goal, input: "", days: 3, start: at(9))
+        container.mainContext.insert(plan)
+        plan.freeFrom = 9 * 60; plan.freeUntil = 21 * 60
+        plan.tasks = [1, 3].map { PlanTask(title: "D\($0)", category: "study", minutes: 60, day: $0, order: $0) }
+        plan.reflow()
+        let cal = Calendar.current
+        let new = plan.addTask(on: at(0))
+        #expect(cal.isDate(new.start!, inSameDayAs: at(9)))
+        #expect(plan.ordered.map(\.title) == ["D1", "New task", "D3"])
+        let middle = plan.addTask(on: at(0, day: 15))
+        #expect(cal.isDate(middle.start!, inSameDayAs: at(9, day: 15)))
+    }
+
     @Test func weekStatsCountTheLastSevenDays() {
         let now = at(21, day: 20)
         func item(_ title: String, day: Int, _ minutes: Int, stress: Int, done: Bool = true, felt: Int? = nil,
