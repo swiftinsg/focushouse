@@ -115,9 +115,16 @@ struct SettingsView: View {
                     }
                 }
                 Section {
-                    ForEach(pace, id: \.category) { p in
-                        LabeledContent(p.category.capitalized,
-                                       value: "×\(p.ratio.formatted(.number.precision(.fractionLength(1)))) · \(p.count) tasks")
+                    ForEach(Planner.categories, id: \.self) { category in
+                        let p = pace.first { $0.category == category }
+                        let ratio = p?.ratio ?? 1
+                        Stepper(value: Binding { ratio } set: {
+                            Planner.setPace(category: category, ratio: ($0 * 10).rounded() / 10)
+                            pace = Planner.pace()
+                        }, in: 0.5...3, step: 0.1) {
+                            LabeledContent(category.capitalized,
+                                           value: "×\(ratio.formatted(.number.precision(.fractionLength(1))))" + (p.map { " · \($0.count) tasks" } ?? " · not learned"))
+                        }
                     }
                     if !pace.isEmpty {
                         Button("Reset my pace", role: .destructive) {
@@ -128,9 +135,7 @@ struct SettingsView: View {
                 } header: {
                     Text("My pace").pixelHeader()
                 } footer: {
-                    Text(pace.isEmpty
-                         ? "After you finish \(Planner.paceRunway) tasks of a kind, the AI learns how long they really take you."
-                         : "Real time ÷ AI estimate. ×1.5 means it takes you 50% longer; new plans adjust for it.")
+                    Text("Real time ÷ AI estimate. ×1.5 means it takes you 50% longer; new plans and stress adjust for it. The AI learns it after \(Planner.paceRunway) tasks of a kind. Set it yourself if it's off, and finished tasks keep fine-tuning it.")
                 }
                 Section {
                     Button("Show the tour again") {

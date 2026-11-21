@@ -20,6 +20,7 @@ struct NewPlanView: View {
     @State private var isWorking = false
     @State private var error: String?
     @State private var question: String?   // the planner needs one more detail
+    @State private var stress: Int?   // nil until the slider is moved
     @AppStorage("askFreeTime") private var askFreeTime = false
     @AppStorage("autoAddToCalendar") private var autoAddToCalendar = false
     @AppStorage("bed") private var bed = 22 * 60
@@ -46,11 +47,16 @@ struct NewPlanView: View {
                               text: $input, axis: .vertical)
                         .lineLimit(4...10)
                         .onChange(of: input) { question = nil }
+                    if Planner.isAvailable {
+                        StressSlider(score: $stress, fallback: mode == .goal ? Ratings.score(input) ?? 5 : 5)
+                    }
                 } header: {
                     Text(mode == .today ? "Dump your to-do list" : "What's your goal?").pixelHeader()
                 } footer: {
                     if let question {
                         Label(question, systemImage: "questionmark.bubble.fill").foregroundStyle(.orange)
+                    } else if Planner.isAvailable {
+                        Text("Move the slider to set the stress for every task in this plan. Leave it and the AI rates each one.")
                     }
                 }
 
@@ -197,6 +203,7 @@ struct NewPlanView: View {
             plan.title = Planner.planTitle(draft.title, input: input, items: draft.items.map(\.title))
             context.insert(plan)
             plan.replaceTasks(with: draft)
+            if let stress { Ratings.set(plan.tasks.map(\.title) + (mode == .goal ? [input] : []), score: stress) }
             if autoAddToCalendar { _ = try? await CalendarSync.add(plan) }
             onCreate(plan)
         } catch let asked as PlannerError where asked.isQuestion {

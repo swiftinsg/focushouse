@@ -647,6 +647,14 @@ extension Planner {
 
     static func resetPace() { UserDefaults.standard.removeObject(forKey: paceKey) }
 
+    /// The student set their own pace in Settings: it counts straight away
+    /// (a full runway of it) and real tasks keep refining it from there.
+    static func setPace(category: String, ratio: Double) {
+        var all = savedPace()
+        all[category] = Array(repeating: ratio, count: paceRunway)
+        UserDefaults.standard.set(try? JSONEncoder().encode(all), forKey: paceKey)
+    }
+
     /// Finished tasks a category needs before its pace counts: a longer runway,
     /// so a couple of odd tasks (or students tweaking times) don't skew it.
     static let paceRunway = 5

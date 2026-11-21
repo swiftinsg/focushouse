@@ -73,6 +73,14 @@ import Testing
         #expect(Planner.savedPace()[category] == [1.5])
     }
 
+    @Test func setPaceCountsNowAndKeepsLearning() {
+        let category = "test-\(UUID())"
+        Planner.setPace(category: category, ratio: 1.5)
+        #expect(Planner.pace().first { $0.category == category }?.ratio == 1.5)
+        for _ in 0..<6 { Planner.recordPace(category: category, estimate: 30, actual: 30) }
+        #expect(Planner.pace().first { $0.category == category }?.ratio == 1)
+    }
+
     @Test func gapBetweenTasks() {
         let starts = Scheduler.schedule([(30, 1), (30, 1)], from: at(10), routine: .loose, gap: 10)
         #expect(starts == [at(10), at(10, 40)])
