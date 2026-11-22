@@ -115,27 +115,13 @@ struct SettingsView: View {
                     }
                 }
                 Section {
-                    ForEach(Planner.categories, id: \.self) { category in
-                        let p = pace.first { $0.category == category }
-                        let ratio = p?.ratio ?? 1
-                        Stepper(value: Binding { ratio } set: {
-                            Planner.setPace(category: category, ratio: ($0 * 10).rounded() / 10)
-                            pace = Planner.pace()
-                        }, in: 0.5...3, step: 0.1) {
-                            LabeledContent(category.capitalized,
-                                           value: "×\(ratio.formatted(.number.precision(.fractionLength(1))))" + (p.map { " · \($0.count) tasks" } ?? " · not learned"))
-                        }
+                    NavigationLink {
+                        PaceView(pace: $pace)
+                    } label: {
+                        LabeledContent("My pace", value: pace.isEmpty ? "Not learned yet" : "\(pace.count) learned")
                     }
-                    if !pace.isEmpty {
-                        Button("Reset my pace", role: .destructive) {
-                            Planner.resetPace()
-                            pace = []
-                        }
-                    }
-                } header: {
-                    Text("My pace").pixelHeader()
                 } footer: {
-                    Text("Real time ÷ AI estimate. ×1.5 means it takes you 50% longer; new plans and stress adjust for it. The AI learns it after \(Planner.paceRunway) tasks of a kind. Set it yourself if it's off, and finished tasks keep fine-tuning it.")
+                    Text("How long tasks really take you compared with the AI's estimate.")
                 }
                 Section {
                     Button("Show the tour again") {
@@ -175,3 +161,35 @@ struct SettingsView: View {
 }
 
 #Preview { SettingsView() }
+
+/// Per-category pace, its own page so Settings stays short as more kinds get learned.
+private struct PaceView: View {
+    @Binding var pace: [(category: String, ratio: Double, count: Int)]
+
+    var body: some View {
+        PixelList {
+            Section {
+                ForEach(Planner.categories, id: \.self) { category in
+                    let p = pace.first { $0.category == category }
+                    let ratio = p?.ratio ?? 1
+                    Stepper(value: Binding { ratio } set: {
+                        Planner.setPace(category: category, ratio: ($0 * 10).rounded() / 10)
+                        pace = Planner.pace()
+                    }, in: 0.5...3, step: 0.1) {
+                        LabeledContent(category.capitalized,
+                                       value: "×\(ratio.formatted(.number.precision(.fractionLength(1))))" + (p.map { " · \($0.count) tasks" } ?? " · not learned"))
+                    }
+                }
+                if !pace.isEmpty {
+                    Button("Reset my pace", role: .destructive) {
+                        Planner.resetPace()
+                        pace = []
+                    }
+                }
+            } footer: {
+                Text("Real time ÷ AI estimate. ×1.5 means it takes you 50% longer; new plans and stress adjust for it. The AI learns it after \(Planner.paceRunway) tasks of a kind. Set it yourself if it's off, and finished tasks keep fine-tuning it.")
+            }
+        }
+        .navigationTitle("My pace")
+    }
+}

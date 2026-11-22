@@ -147,7 +147,7 @@ struct RoomView: View {
     /// Fixed art and animation frames from `Art/room.json`, drawn by HY4 (via opencode).
     struct Art: Decodable {
         var fireplace: [String] = [], stairs: [String] = []
-        var fire: [[String]] = [], catWalk: [[String]] = [], catSleep: [[String]] = []
+        var fire: [[String]] = [], catWalk: [[String]] = [], catSleep: [[String]] = [], catHang: [[String]] = []
     }
     static let art: Art = Bundle.main.url(forResource: "room", withExtension: "json")
         .flatMap { try? Data(contentsOf: $0) }
@@ -277,19 +277,29 @@ struct RoomView: View {
 }
 
 /// The room's moving bits, frames by HY4: the fire flickers, embers drift up,
-/// the mantel candle glows, and a ginger cat wanders the ground floor then naps
-/// by the fire (tap it for hearts). Still frames with Reduce Motion.
+/// the mantel candle glows, and Pommy wanders the ground floor then naps
+/// by the fire (tap for hearts; drag to carry her by the scruff, she swings with
+/// the finger's speed, and lands on the floor below). Still frames with Reduce Motion.
 private struct RoomLife: View {
     let px: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pettedAt = Date.distantPast
     @State private var pets = 0
+    @State private var held: CGPoint?          // finger, in room pixels, while carrying the cat
+    @State private var swing = 0.0             // degrees; the body lags behind the finger
+    @State private var settle: Task<Void, Never>?
+    @State private var drop: Drop?
+
+    /// Where the cat was let go: she falls to `bottom`, looks around, then walks home (downstairs) or naps there (upstairs).
+    struct Drop { var x: Double, top: Double, bottom: Int, at: Date }
+    static let gravity = 400.0                 // room px / s²
 
     private let art = RoomView.art
     private var fireTop: Int { RoomView.groundLine - art.fireplace.count + 1 }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 8, paused: reduceMotion)) { timeline in
+        let falling = drop.map { Date.now.timeIntervalSince($0.at) < 1.5 } ?? false
+        TimelineView(.animation(minimumInterval: falling ? 1 / 30 : 1 / 8, paused: reduceMotion)) { timeline in
             let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
             ZStack(alignment: .topLeading) {
                 if !art.fire.isEmpty {
@@ -300,6 +310,7 @@ private struct RoomLife: View {
                     .allowsHitTesting(false)
                 cat(t: t, now: timeline.date)
             }
+            .coordinateSpace(.named("room"))
         }
         .accessibilityHidden(true)
         .sensoryFeedback(.impact(weight: .light), trigger: pets)
@@ -335,40 +346,96 @@ private struct RoomLife: View {
     }
 
     /// 40 s loop: walk right from the hearth, pause, walk back, nap in front of the fire.
+    /// After a drop the loop picks up from wherever she lands.
+    private func pose(t: Double, now: Date) -> (x: Double, y: Double, grid: [String], flip: Bool) {
+        let home = 27.0, far = 84.0, speed = 6.0            // room pixels, px per second
+        let walk = (far - home) / speed                    // 13 s each way
+        let loop = walk * 2 + 4 + 14
+        let ground = RoomView.groundLine + 3              // a little in front of the furniture
+        let walking = art.catWalk[Int(t * 6) % art.catWalk.count]
+        let napping = art.catSleep[Int(t / 1.6) % art.catSleep.count]
+        func looping(_ s: Double) -> (Double, [String], Bool) {
+            reduceMotion || s >= walk * 2 + 4 ? (home, napping, false)            // napping, breathing
+            : s < walk ? (home + s * speed, walking, false)                       // walking right
+            : s < walk + 4 ? (far, art.catWalk[0], false)                         // a look around
+            : (far - (s - walk - 4) * speed, walking, true)                       // walking home
+        }
+        if let held {   // hanging from the finger by the scruff
+            let g = art.catHang[0]
+            return (held.x - Double(g[0].count) / 2, held.y - 1, g, false)
+        }
+        guard let drop else {
+            let (x, g, f) = looping(t.truncatingRemainder(dividingBy: loop))
+            return (x, Double(ground - g.count + 1), g, f)
+        }
+        let d = reduceMotion ? 99 : now.timeIntervalSince(drop.at)
+        let floorTop = Double(drop.bottom - art.catWalk[0].count + 1)
+        let fall = (2 * max(0, floorTop - drop.top) / Self.gravity).squareRoot()
+        if d < fall { return (drop.x, drop.top + Self.gravity * d * d / 2, art.catWalk[0], false) }
+        if d < fall + 1.5 { return (drop.x, floorTop, art.catWalk[0], false) }      // lands, looks around
+        if drop.bottom != ground {                                                     // upstairs: naps where she landed
+            return (drop.x, Double(drop.bottom - napping.count + 1), napping, false)
+        }
+        let back = abs(drop.x - home) / speed, w = d - fall - 1.5
+        if w < back { return (drop.x + (drop.x > home ? -w : w) * speed, floorTop, walking, drop.x > home) }
+        let (x, g, f) = looping((w - back + walk * 2 + 4).truncatingRemainder(dividingBy: loop))
+        return (x, Double(ground - g.count + 1), g, f)
+    }
+
     @ViewBuilder private func cat(t: Double, now: Date) -> some View {
-        if !art.catWalk.isEmpty, !art.catSleep.isEmpty {
-            let home = 27.0, far = 84.0, speed = 6.0            // room pixels, px per second
-            let walk = (far - home) / speed                    // 13 s each way
-            let loop = walk * 2 + 4 + 14
-            let s = t.truncatingRemainder(dividingBy: loop)
-            let bottom = RoomView.groundLine + 3              // a little in front of the furniture
-            let (x, grid, flip): (Double, [String], Bool) = reduceMotion || s >= walk * 2 + 4
-                ? (home, art.catSleep[Int(t / 1.6) % art.catSleep.count], false)                   // napping, breathing
-                : s < walk ? (home + s * speed, art.catWalk[Int(t * 6) % art.catWalk.count], false)  // walking right
-                : s < walk + 4 ? (far, art.catWalk[0], false)                                        // a look around
-                : (far - (s - walk - 4) * speed, art.catWalk[Int(t * 6) % art.catWalk.count], true)  // walking home
-            let y = bottom - grid.count + 1
-            let w = Double(grid.first?.count ?? 16)
+        if !art.catWalk.isEmpty, !art.catSleep.isEmpty, !art.catHang.isEmpty {
+            let pose = pose(t: t, now: now)
+            let w = Double(pose.grid.first?.count ?? 16), h = Double(pose.grid.count)
             let petted = now.timeIntervalSince(pettedAt)
             ZStack(alignment: .topLeading) {
-                place(grid, x: x.rounded(), y: y, flip: flip)
-                if petted < 1.4 {   // little pink hearts float up
+                place(pose.grid, x: pose.x.rounded(), y: Int(pose.y.rounded()), flip: pose.flip)
+                    .rotationEffect(.degrees(held == nil ? 0 : swing), anchor: .top)
+                if petted < 1.4, held == nil {   // little pink hearts float up
                     ForEach(0..<2, id: \.self) { i in
                         Text("♥").font(.system(size: 5 * px, weight: .black)).foregroundStyle(Color(light: 0xE3A3B4, dark: 0xE3A3B4))
-                            .position(x: (x + w / 3 + Double(i * 6)) * px, y: (Double(y) - 2 - petted * 8 - Double(i * 2)) * px)
+                            .position(x: (pose.x + w / 3 + Double(i * 6)) * px, y: (pose.y - 2 - petted * 8 - Double(i * 2)) * px)
                             .opacity(1 - petted / 1.4)
                             .allowsHitTesting(false)
                     }
                 }
-                // the cat itself takes taps: pet it
+                // the cat itself takes taps (pet her) and drags (carry her)
                 Color.clear
-                    .frame(width: w * px, height: CGFloat(grid.count) * px)
+                    .frame(width: w * px, height: h * px)
                     .contentShape(Rectangle())
-                    .position(x: (x + w / 2) * px, y: (Double(y) + Double(grid.count) / 2) * px)
+                    .position(x: (pose.x + w / 2) * px, y: (pose.y + h / 2) * px)
                     .onTapGesture { pettedAt = .now; pets += 1 }
+                    .gesture(carry)
                     .accessibilityHidden(true)
             }
         }
+    }
+
+    /// Pick Pommy up by the scruff; her body swings against the finger's sideways speed.
+    private var carry: some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .named("room"))
+            .onChanged { v in
+                if held == nil { pets += 1 }
+                held = CGPoint(x: min(max(v.location.x / px, 0), RoomView.size.width),
+                               y: min(max(v.location.y / px, 0), RoomView.size.height))
+                guard !reduceMotion else { return }
+                withAnimation(.interactiveSpring(duration: 0.25)) { swing = min(max(v.velocity.width * 0.08, -55), 55) }
+                settle?.cancel()
+                settle = Task { @MainActor in   // finger stops: she swings back and forth to rest
+                    try? await Task.sleep(for: .milliseconds(100))
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.spring(duration: 0.9, bounce: 0.65)) { swing = 0 }
+                }
+            }
+            .onEnded { _ in
+                guard let held else { return }
+                settle?.cancel()
+                let walkW = Double(art.catWalk[0].first?.count ?? 18)
+                let ground = RoomView.groundLine + 3
+                drop = Drop(x: min(max(held.x - walkW / 2, 0), RoomView.size.width - walkW), top: held.y,
+                            bottom: held.y < Double(RoomView.storey) ? ground - RoomView.downstairs : ground, at: .now)
+                self.held = nil
+                swing = 0
+            }
     }
 }
 
