@@ -68,20 +68,29 @@ def imageset(name, rows, palette, template=False, scales=(1,)):
     folder = os.path.join(ASSETS, name + ".imageset")
     os.makedirs(folder, exist_ok=True)
     images = []
-    for s in scales:
-        file = f"{name}@{s}x.png"
-        with open(os.path.join(folder, file), "wb") as f:
-            f.write(png(rows, palette, max(1, round(26 * s / max(len(rows), len(rows[0])))) if template else s))
-        images.append({"filename": file, "idiom": "universal", "scale": f"{s}x"})
-    props = {"template-rendering-intent": "template"} if template else {}
-    with open(os.path.join(folder, "Contents.json"), "w") as f:
-        json.dump({"images": images, "info": {"author": "xcode", "version": 1}, "properties": props}, f, indent=2)
+    for s in (1, 2, 3):   # Xcode lists every slot, empty ones without a filename
+        image = {"idiom": "universal", "scale": f"{s}x"}
+        if s in scales:
+            file = f"{name}@{s}x.png"
+            with open(os.path.join(folder, file), "wb") as f:
+                f.write(png(rows, palette, max(1, round(26 * s / max(len(rows), len(rows[0])))) if template else s))
+            image = {"filename": file, **image}
+        images.append(image)
+    contents = {"images": images, "info": {"author": "xcode", "version": 1}}
+    if template:
+        contents["properties"] = {"template-rendering-intent": "template"}
+    xcode_json(os.path.join(folder, "Contents.json"), contents)
+
+
+def xcode_json(path, obj):
+    """Write JSON the way Xcode does (`"key" : value`, trailing newline) so opening the project leaves no diff."""
+    with open(path, "w") as f:
+        f.write(json.dumps(obj, indent=2, separators=(",", " : ")) + "\n")
 
 
 def main():
     os.makedirs(ASSETS, exist_ok=True)
-    with open(os.path.join(ASSETS, "Contents.json"), "w") as f:
-        json.dump({"info": {"author": "xcode", "version": 1}}, f, indent=2)
+    xcode_json(os.path.join(ASSETS, "Contents.json"), {"info": {"author": "xcode", "version": 1}})
 
     # house.<state>.<level> (tools/house_art.py), plus house.<state> = level 4 for code without a level.
     houses = json.load(open(os.path.join(ROOT, "Art", "houses.json")))
