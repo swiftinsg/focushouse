@@ -25,7 +25,7 @@ final class RestMonitor: DeviceActivityMonitor {
         if !used { QuietHours.add(endingAt: now) }   // focus bonus, even during a task
         // Phone used, or phone down during a scheduled task or lesson: not rest, run over.
         guard !used,
-              Tester.on || !WidgetSnapshot.load().blocksRest(from: now.addingTimeInterval(-3600), to: now) else {   // TESTER: rest during tasks counts
+              !WidgetSnapshot.load().blocksRest(from: now.addingTimeInterval(-3600), to: now) else {
             RestRun().save()
             return
         }

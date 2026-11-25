@@ -115,8 +115,7 @@ enum House {
     /// took, whichever is less, up to `maxTaskMinutes`; ×1.5 when the phone stayed
     /// down the whole time (Screen Time's quiet hours).
     static func bricks(minutes: Int, actual: Int?, _ effort: Effort, focused: Bool) -> Int {
-        let cap = Tester.on ? Int.max : maxTaskMinutes   // TESTER: no 2 h cap per task
-        let b = bricks(minutes: min(cap, minutes, actual ?? minutes), effort)
+        let b = bricks(minutes: min(maxTaskMinutes, minutes, actual ?? minutes), effort)
         return focused ? b * 3 / 2 : b
     }
 
@@ -128,7 +127,6 @@ enum House {
 
     /// One day's bricks: full rate up to `fullRateBricks`, half after, at most `dailyBrickCap`.
     static func dayTotal(_ bricks: Int) -> Int {
-        if Tester.on { return bricks }   // TESTER: no half rate or daily cap
         return min(dailyBrickCap, bricks <= fullRateBricks ? bricks : fullRateBricks + (bricks - fullRateBricks) / 2)
     }
 

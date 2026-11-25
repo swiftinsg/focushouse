@@ -298,13 +298,13 @@ private struct RoomLife: View {
     private var fireTop: Int { RoomView.groundLine - art.fireplace.count + 1 }
 
     var body: some View {
-        let falling = drop.map { Date.now.timeIntervalSince($0.at) < 1.5 } ?? false
+        let falling = held != nil || drop.map { Date.now.timeIntervalSince($0.at) < 1.5 } ?? false
         TimelineView(.animation(minimumInterval: falling ? 1 / 30 : 1 / 8, paused: reduceMotion)) { timeline in
             let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
             ZStack(alignment: .topLeading) {
                 if !art.fire.isEmpty {
                     let frame = art.fire[Int(t * 6) % art.fire.count]
-                    place(frame, x: 2, y: fireTop + 71)
+                    place(frame, x: 2, y: CGFloat(fireTop + 71))
                 }
                 Canvas { ctx, _ in glow(ctx, t: t) }
                     .allowsHitTesting(false)
@@ -317,12 +317,14 @@ private struct RoomLife: View {
     }
 
     /// A sprite with its top-left at room pixel (x, y).
-    private func place(_ grid: [String], x: CGFloat, y: Int, flip: Bool = false) -> some View {
+    /// `swing` turns it about its top centre (the scruff), before it's positioned.
+    private func place(_ grid: [String], x: CGFloat, y: CGFloat, flip: Bool = false, swing: Double = 0) -> some View {
         let w = CGFloat(grid.first?.count ?? 0), h = CGFloat(grid.count)
         return PixelSprite(grid: grid)
             .frame(width: w * px, height: h * px)
             .scaleEffect(x: flip ? -1 : 1)
-            .position(x: (x + w / 2) * px, y: (CGFloat(y) + h / 2) * px)
+            .rotationEffect(.degrees(swing), anchor: .top)
+            .position(x: (x + w / 2) * px, y: (y + h / 2) * px)
             .allowsHitTesting(false)
     }
 
@@ -388,8 +390,9 @@ private struct RoomLife: View {
             let w = Double(pose.grid.first?.count ?? 16), h = Double(pose.grid.count)
             let petted = now.timeIntervalSince(pettedAt)
             ZStack(alignment: .topLeading) {
-                place(pose.grid, x: pose.x.rounded(), y: Int(pose.y.rounded()), flip: pose.flip)
-                    .rotationEffect(.degrees(held == nil ? 0 : swing), anchor: .top)
+                // held: follows the finger smoothly; otherwise snaps to the pixel grid
+                place(pose.grid, x: held == nil ? pose.x.rounded() : pose.x, y: held == nil ? pose.y.rounded() : pose.y,
+                      flip: pose.flip, swing: held == nil ? 0 : swing)
                 if petted < 1.4, held == nil {   // little pink hearts float up
                     ForEach(0..<2, id: \.self) { i in
                         Text("♥").font(.system(size: 5 * px, weight: .black)).foregroundStyle(Color(light: 0xE3A3B4, dark: 0xE3A3B4))

@@ -228,13 +228,12 @@ extension Date {
     /// free time, and never when ticked before it started.
     var earnsBricks: Bool {
         done && category != Plan.freeTime && !tickedEarly
-            && (Tester.on   // TESTER: pays without answering "How did it go?"
-                || checkIn == CheckInState.none.rawValue || checkIn == CheckInState.answered.rawValue)
+            && (checkIn == CheckInState.none.rawValue || checkIn == CheckInState.answered.rawValue)
     }
 
     /// Ticked before its start time: done, but no bricks.
     var tickedEarly: Bool {
-        guard !Tester.on, let doneAt, let start else { return false }   // TESTER: early ticks pay
+        guard let doneAt, let start else { return false }
         return doneAt < start
     }
 

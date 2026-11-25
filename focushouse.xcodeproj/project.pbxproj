@@ -11,6 +11,7 @@
 		031DC524FE8978BA81807D01 /* ScreenTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 992D87DDF9AAA1400FBCA858 /* ScreenTime.swift */; };
 		0428FBFB0E647B924335AFA6 /* RestMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1890E86596981335E25E0E0 /* RestMonitor.swift */; };
 		04D40C4A03E730F813F7E4A0 /* HouseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 625339BA0FD04DE862AEEF7E /* HouseTests.swift */; };
+		072A990EDA641E35F807C7AD /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7446DB0920F9D5B951F45795 /* PrivacyInfo.xcprivacy */; };
 		098532179E832500CB722324 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9E8928F5F4908A8B94995B6 /* Theme.swift */; };
 		0EA0296E67DE0D046A315F29 /* focushouse.icon in Resources */ = {isa = PBXBuildFile; fileRef = FE084D4EB009045490449FED /* focushouse.icon */; };
 		139BD6A7F6BDA3482497840C /* SiriIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93AD203248598EF611859BED /* SiriIntents.swift */; };
@@ -39,7 +40,6 @@
 		651F02B71B5A6AA17BE55787 /* TodoItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35969715D056595DBCEF12B /* TodoItem.swift */; };
 		6A27B4E181CDF13A102A842D /* WidgetSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B20CF3834A2FE4D4ECD38B /* WidgetSync.swift */; };
 		73D3FF0F164626E1528658BD /* Hints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FEFBB34BDDD22D97DFEBAB6 /* Hints.swift */; };
-		744FA7FBAFA177D40E7245AC /* Tester.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A37C5B66D840AF6B00801D1 /* Tester.swift */; };
 		7696CCD3EE21E135A8F85CB3 /* BrickLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAC6347E384FCA391782DADE /* BrickLoader.swift */; };
 		8187886910D17D7D67F448E4 /* PlannerEval.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F93E3356CC075F06AB283A6 /* PlannerEval.swift */; };
 		8311D8BCADDFB14B4E4315EA /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E75D038DBE0B793FD049BAC /* WidgetSnapshot.swift */; };
@@ -47,6 +47,7 @@
 		84D2A5D7808E5880540AD97A /* Reminders.swift in Sources */ = {isa = PBXBuildFile; fileRef = C315DA44F96EC043EDA1C801 /* Reminders.swift */; };
 		880815CC53C034E43813980B /* furniture_more.json in Resources */ = {isa = PBXBuildFile; fileRef = 7DD7396971A5E762C1CA9D89 /* furniture_more.json */; };
 		89BC5D287A655FF1F6C48E1C /* HouseRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F010BD141A1EC48FCE43D7F4 /* HouseRules.swift */; };
+		8D0E5907551F41152E7E9915 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7446DB0920F9D5B951F45795 /* PrivacyInfo.xcprivacy */; };
 		8D967FB7AAC0810436636405 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ABCE8B42060DDB0EEAE1D1F2 /* Assets.xcassets */; };
 		9B117F2C1C8F4A818CEBB78A /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A4AA7204167A77945CC2395 /* CalendarView.swift */; };
 		9F185BEAA849AB88CF65DA16 /* focushouse.icon in Resources */ = {isa = PBXBuildFile; fileRef = FE084D4EB009045490449FED /* focushouse.icon */; };
@@ -54,7 +55,7 @@
 		A48E56EBAE62015E9B5F1CBA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A444C467E91742D0651D4FC4 /* ContentView.swift */; };
 		A4FB8F803EE1263390EB6ECE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ABCE8B42060DDB0EEAE1D1F2 /* Assets.xcassets */; };
 		A5666D38609B3148D01B1BAE /* StudyMaterialTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0241D3BBC13839E018CBAFE /* StudyMaterialTests.swift */; };
-		A594B7A88EBAF496B14606E8 /* Tester.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A37C5B66D840AF6B00801D1 /* Tester.swift */; };
+		A97427DA0A4A2D4F65451DA6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7446DB0920F9D5B951F45795 /* PrivacyInfo.xcprivacy */; };
 		AA83E237676E3F5575E20166 /* Upgrades.swift in Sources */ = {isa = PBXBuildFile; fileRef = 425BF9CFDBE211B8830DA862 /* Upgrades.swift */; };
 		AB32D878883EACA4958D4039 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E75D038DBE0B793FD049BAC /* WidgetSnapshot.swift */; };
 		ABFE21F416B8B3302B85CDEF /* OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = F03E64056D1464FAFB95D8B9 /* OFL.txt */; };
@@ -76,7 +77,6 @@
 		EBB99F2CFA39473D46A36167 /* WidgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45631C34A2B10C3BCF7F383B /* WidgetTests.swift */; };
 		ECC145DAF58E706F179AD6E8 /* SiriTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5FE25A82521B676DF443D62 /* SiriTests.swift */; };
 		ED74209ADB5F03B241261E83 /* Jersey10.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5C7414CE1C52301C202A7F59 /* Jersey10.ttf */; };
-		F00EFDCAE4898BD7D0A871CC /* Tester.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A37C5B66D840AF6B00801D1 /* Tester.swift */; };
 		F0B86E967EA83C98F3383CB8 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFF24F9D17F79337BF55305A /* HomeView.swift */; };
 		FBD48DF6458548D1899A696B /* PlanTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5798B29D351AC822D6EC73 /* PlanTimeline.swift */; };
 		FD88131FF6B7A549CB0DBE6F /* TimetableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7535BBAB426B0F10326A64D6 /* TimetableTests.swift */; };
@@ -149,9 +149,9 @@
 		5C7414CE1C52301C202A7F59 /* Jersey10.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Jersey10.ttf; sourceTree = "<group>"; };
 		625339BA0FD04DE862AEEF7E /* HouseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HouseTests.swift; sourceTree = "<group>"; };
 		64F92ADDF3F74CBB77A02ACD /* PlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanView.swift; sourceTree = "<group>"; };
-		6A37C5B66D840AF6B00801D1 /* Tester.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tester.swift; sourceTree = "<group>"; };
 		6A4AA7204167A77945CC2395 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
 		6E75D038DBE0B793FD049BAC /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		7446DB0920F9D5B951F45795 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		7535BBAB426B0F10326A64D6 /* TimetableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableTests.swift; sourceTree = "<group>"; };
 		7D8F166292F19E0C9CA30987 /* NewTaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTaskView.swift; sourceTree = "<group>"; };
 		7DD7396971A5E762C1CA9D89 /* furniture_more.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = furniture_more.json; sourceTree = "<group>"; };
@@ -254,8 +254,8 @@
 			isa = PBXGroup;
 			children = (
 				F010BD141A1EC48FCE43D7F4 /* HouseRules.swift */,
+				7446DB0920F9D5B951F45795 /* PrivacyInfo.xcprivacy */,
 				84FD95A3351594CB129A00CB /* RestLog.swift */,
-				6A37C5B66D840AF6B00801D1 /* Tester.swift */,
 				6E75D038DBE0B793FD049BAC /* WidgetSnapshot.swift */,
 			);
 			path = Shared;
@@ -378,6 +378,7 @@
 			buildConfigurationList = 74455A439814F824428CCAB6 /* Build configuration list for PBXNativeTarget "RestMonitor" */;
 			buildPhases = (
 				B7C998F2A53D9E38D8B84360 /* Sources */,
+				E0BE6408FF4EA4E17CC39866 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -464,6 +465,7 @@
 				A4FB8F803EE1263390EB6ECE /* Assets.xcassets in Resources */,
 				ED74209ADB5F03B241261E83 /* Jersey10.ttf in Resources */,
 				ABFE21F416B8B3302B85CDEF /* OFL.txt in Resources */,
+				A97427DA0A4A2D4F65451DA6 /* PrivacyInfo.xcprivacy in Resources */,
 				0EA0296E67DE0D046A315F29 /* focushouse.icon in Resources */,
 				1A4320940F4E7E1A1CE7B48D /* furniture.json in Resources */,
 				C0DC2DA52C42E989DF3659C2 /* furniture_hobbies.json in Resources */,
@@ -478,7 +480,16 @@
 			files = (
 				8D967FB7AAC0810436636405 /* Assets.xcassets in Resources */,
 				2C897A31EC8B4BEB06A2BF54 /* Jersey10.ttf in Resources */,
+				8D0E5907551F41152E7E9915 /* PrivacyInfo.xcprivacy in Resources */,
 				9F185BEAA849AB88CF65DA16 /* focushouse.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E0BE6408FF4EA4E17CC39866 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				072A990EDA641E35F807C7AD /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -511,7 +522,6 @@
 			files = (
 				5368604F31D8738A8EA4C481 /* HouseRules.swift in Sources */,
 				4733B7F34DF4B5129F7021B3 /* RestLog.swift in Sources */,
-				F00EFDCAE4898BD7D0A871CC /* Tester.swift in Sources */,
 				098532179E832500CB722324 /* Theme.swift in Sources */,
 				8311D8BCADDFB14B4E4315EA /* WidgetSnapshot.swift in Sources */,
 				B390CCF2752A8CC241FE366B /* Widgets.swift in Sources */,
@@ -552,7 +562,6 @@
 				D27D3FEEA5200DAEFD721547 /* StudyMaterial.swift in Sources */,
 				1BB41C7D1F70F46AC5A0D837 /* SubtaskEditor.swift in Sources */,
 				3D724E239E9034A4C2538BCE /* TaskView.swift in Sources */,
-				A594B7A88EBAF496B14606E8 /* Tester.swift in Sources */,
 				E80EC4678C57E25196127378 /* Theme.swift in Sources */,
 				E50F34A318C3A0A5FD5E4D94 /* Timetable.swift in Sources */,
 				651F02B71B5A6AA17BE55787 /* TodoItem.swift in Sources */,
@@ -569,7 +578,6 @@
 				B2AAA58000B39C3157DF5F5A /* HouseRules.swift in Sources */,
 				25816E89C16CEE9C0B5FE6C3 /* RestLog.swift in Sources */,
 				0428FBFB0E647B924335AFA6 /* RestMonitor.swift in Sources */,
-				744FA7FBAFA177D40E7245AC /* Tester.swift in Sources */,
 				BDF41DA85933808A886E0096 /* WidgetSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -624,7 +632,6 @@
 				CODE_SIGN_ENTITLEMENTS = focushouseWidgets/focushouseWidgets.entitlements;
 				DEVELOPMENT_TEAM = XL5JK4F896;
 				INFOPLIST_FILE = focushouseWidgets/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -670,7 +677,6 @@
 				CODE_SIGN_ENTITLEMENTS = focushouseWidgets/focushouseWidgets.entitlements;
 				DEVELOPMENT_TEAM = XL5JK4F896;
 				INFOPLIST_FILE = focushouseWidgets/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -721,6 +727,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -733,7 +740,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -823,6 +831,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -841,7 +850,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -858,9 +868,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = focushouse;
+				CFBundleShortVersionString = "$(MARKETING_VERSION)";
+				CFBundleVersion = "$(CURRENT_PROJECT_VERSION)";
 				CODE_SIGN_ENTITLEMENTS = focushouse/focushouse.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XL5JK4F896;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = focushouse;
@@ -868,12 +879,10 @@
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "focushouse plans around your calendar events and can add your tasks to Calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Take an optional photo of finished work at check-in. It stays on your phone.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = sg.swiftin.2am;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -889,9 +898,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = focushouse;
+				CFBundleShortVersionString = "$(MARKETING_VERSION)";
+				CFBundleVersion = "$(CURRENT_PROJECT_VERSION)";
 				CODE_SIGN_ENTITLEMENTS = focushouse/focushouse.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XL5JK4F896;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = focushouse;
@@ -899,12 +909,10 @@
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "focushouse plans around your calendar events and can add your tasks to Calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Take an optional photo of finished work at check-in. It stays on your phone.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = sg.swiftin.2am;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

@@ -31,7 +31,7 @@ struct CheckInSheet: View {
                     Text("How did it go?")
                         .font(.pixel(26, relativeTo: .title))
                     Text(task.title).font(.headline)
-                    if task.tickedEarly {   // never true in Tester mode
+                    if task.tickedEarly {
                         Text("Ticked before it started, so it won't earn bricks. Untick it and tick again once you've done it in its slot.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }

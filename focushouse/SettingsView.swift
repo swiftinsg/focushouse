@@ -12,7 +12,6 @@ struct SettingsView: View {
     @AppStorage("autoAddToCalendar") private var autoAddToCalendar = false
     @AppStorage("askFreeTime") private var askFreeTime = false
     @AppStorage("screenTimeRest") private var screenTimeRest = false
-    @AppStorage("testerMode", store: RestLog.defaults) private var testerMode = true
     @AppStorage("restMinBreak", store: RestLog.defaults) private var restMinBreak = RestLog.defaultMinutes
     @AppStorage("limitSchool") private var limitSchool = WorkLimit.schoolDefault
     @AppStorage("limitOff") private var limitOff = WorkLimit.offDefault
@@ -74,13 +73,6 @@ struct SettingsView: View {
                     Text(screenTimeRest
                          ? "Rest is \(HomeView.duration(TimeInterval(restMinBreak * 60))) or more in a row without using your phone (counted in whole hours). \(Int(House.restGoal / 3600)) hours of rest in a day repairs your house a step. Tasks done with your phone down the whole time earn 50% more bricks."
                          : "Rest is \(HomeView.duration(TimeInterval(restMinBreak * 60))) or more in a row away from focushouse (at least 15 min). It can't see other apps, so turn on Screen Time to count only time off your whole phone.")
-                }
-                Section {   // TESTER: remove before release
-                    Toggle("Tester mode", isOn: $testerMode)
-                } header: {
-                    Text("Testing").pixelHeader()
-                } footer: {
-                    Text("For trying the app out: tasks pay bricks even when ticked early or without \"How did it go?\", with no daily or per-task caps, and rest during a task still counts. Turn it off to play by the real rules.")
                 }
                 Section {
                     Toggle("Weekly summary", isOn: $summaryOn)
