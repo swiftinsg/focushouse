@@ -21,12 +21,12 @@ enum Week: String, CaseIterable {
     case every = "Every week", a = "Week A", b = "Week B"
 }
 
-@Generable struct DraftTimetable {
+@available(iOS 26, *) @Generable struct DraftTimetable {
     @Guide(description: "Every lesson in the timetable, one per class on each day", .count(0...80))
     var lessons: [DraftLesson]
 }
 
-@Generable struct DraftLesson {
+@available(iOS 26, *) @Generable struct DraftLesson {
     @Guide(description: "Subject or class name, e.g. \"Maths\" or \"Chemistry lab\"")
     var subject: String
     @Guide(description: "Day of the week", .anyOf(Timetable.weekdays))
@@ -46,7 +46,7 @@ enum Timetable {
 
     /// Reads a timetable photo or PDF: Vision finds the table, then the on-device
     /// model turns it into lessons (and also sees the picture, if it can).
-    static func read(_ images: [CGImage]) async throws -> [Lesson] {
+    @available(iOS 26, *) static func read(_ images: [CGImage]) async throws -> [Lesson] {
         var text = ""
         for image in images {
             for doc in try await RecognizeDocumentsRequest().perform(on: image, orientation: nil) {
@@ -57,7 +57,6 @@ enum Timetable {
             }
         }
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw TimetableError.noText }
-        let vision = SystemLanguageModel.default.capabilities.contains(.vision)
         let session = LanguageModelSession(instructions: """
             You read a student's school timetable. List every lesson with its day, start and end time. \
             Rows or columns are usually days and periods; a period's times apply to every lesson in it. \
@@ -66,15 +65,18 @@ enum Timetable {
             Some timetables have two weeks (Week A and Week B, or odd and even weeks): mark each \
             lesson with its week, and list a lesson that's the same in both weeks once, as every.
             """)
-        let draft = try await session.respond(to: Prompt {
-            "Timetable text (cells separated by |):\n\(text)"
-            if vision, let first = images.first { Attachment(first) }
-        }, generating: DraftTimetable.self).content
+        let prompt = "Timetable text (cells separated by |):\n\(text)"
+        let draft: DraftTimetable
+        if #available(iOS 27, *), SystemLanguageModel.default.capabilities.contains(.vision), let first = images.first {
+            draft = try await session.respond(to: Prompt { prompt; Attachment(first) }, generating: DraftTimetable.self).content
+        } else {   // iOS 26's model reads the text only
+            draft = try await session.respond(to: prompt, generating: DraftTimetable.self).content
+        }
         return draft.lessons.compactMap(lesson)
     }
 
     /// A model lesson as a `Lesson`, or nil if it's a break or has no real time.
-    static func lesson(_ d: DraftLesson) -> Lesson? {
+    @available(iOS 26, *) static func lesson(_ d: DraftLesson) -> Lesson? {
         let subject = d.subject.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let day = weekdays.firstIndex(of: d.weekday), !subject.isEmpty,
               !["break", "recess", "lunch"].contains(subject.lowercased()) else { return nil }
@@ -241,6 +243,7 @@ struct TimetableView: View {
         isWorking = true
         message = nil
         defer { isWorking = false }
+        guard #available(iOS 26, *) else { return }   // reading needs Apple Intelligence; typing lessons in works anywhere
         do {
             let found = try await Timetable.read(try await load())
             lessons = found.sorted { ($0.weekday, $0.start) < ($1.weekday, $1.start) }

@@ -253,11 +253,11 @@ struct PlanView: View {
             guard !photos.isEmpty else { return }
             let items = photos
             photos = []
-            Task { await attach { try await StudyMaterial.text(fromPhotos: items) } }
+            if #available(iOS 26, *) { Task { await attach { try await StudyMaterial.text(fromPhotos: items) } } }
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf, .image], allowsMultipleSelection: true) { result in
             switch result {
-            case .success(let urls): Task { await attach { try await StudyMaterial.text(fromFiles: urls) } }
+            case .success(let urls): if #available(iOS 26, *) { Task { await attach { try await StudyMaterial.text(fromFiles: urls) } } }
             case .failure(let error): materialNote = error.localizedDescription
             }
         }
@@ -283,7 +283,7 @@ struct PlanView: View {
 
     /// Adds an attachment's text (or its outline) under the material, then re-plans
     /// the unfinished tasks from it.
-    private func attach(_ read: () async throws -> String) async {
+    @available(iOS 26, *) private func attach(_ read: () async throws -> String) async {
         reading = true
         materialNote = nil
         defer { reading = false }
@@ -300,7 +300,7 @@ struct PlanView: View {
 
     /// Rebuilds the tasks from the goal and its material. Finished tasks (and the bricks they earned) stay.
     private func replanFromGoal() {
-        guard Planner.isAvailable, !isWorking, !plan.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard Planner.isAvailable, #available(iOS 26, *), !isWorking, !plan.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         Task {
             await run {
                 let draft = try await Planner.draft(for: plan, history: Reflections.history(in: plan.modelContext))
@@ -405,7 +405,7 @@ struct PlanView: View {
                 Menu {
                     if hasPending {
                         Button("Re-plan the rest with AI", systemImage: "sparkles") {
-                            Task { await run { plan.replaceRemaining(with: try await Planner.replan(plan)) } }
+                            Task { await run { if #available(iOS 26, *) { plan.replaceRemaining(with: try await Planner.replan(plan)) } } }
                         }
                     }
                     if !plan.input.isEmpty {
@@ -413,6 +413,7 @@ struct PlanView: View {
                             Task {
                                 await run {
                                     // Show the AI the current plan so it makes a different one.
+                                    guard #available(iOS 26, *) else { return }
                                     plan.replaceTasks(with: try await Planner.draft(for: plan, previous: plan.ordered,
                                                                                     history: Reflections.history(in: plan.modelContext)))
                                 }

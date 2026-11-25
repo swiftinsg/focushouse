@@ -9,7 +9,6 @@ struct PlanTimeline: View {
     @Binding var day: Date   // PlanView's + adds to this day
     @State private var swiped: PersistentIdentifier?   // swiped left: Delete showing
     @State private var dragging = false   // a block is being moved: the timeline holds still
-    @State private var scroll = ScrollPosition(edge: .top)
     @State private var askPin: PlanTask?   // just dragged: offer to lock it there
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Pinch to zoom; remembered between visits.
@@ -24,6 +23,7 @@ struct PlanTimeline: View {
     private let top: CGFloat = 12
 
     var body: some View {
+        ScrollViewReader { proxy in
         VStack(spacing: 0) {
             dayPicker
             Divider()
@@ -32,6 +32,9 @@ struct PlanTimeline: View {
                 let frames = layout(from: from)
                 ZStack(alignment: .topLeading) {
                     hourGrid(from: from, to: to)
+                    ForEach(from..<max(from, to), id: \.self) { h in   // scroll targets, one per hour
+                        Color.clear.frame(width: 1, height: 1).offset(y: top + CGFloat(h - from) * hourHeight).id(h)
+                    }
                     ForEach(Array(busyToday.enumerated()), id: \.offset) { _, range in
                         busyBlock(range, from: from)
                     }
@@ -56,7 +59,6 @@ struct PlanTimeline: View {
                        alignment: .topLeading)
                 .padding(.horizontal)
             }
-            .scrollPosition($scroll)
             .scrollDisabled(dragging)
             .simultaneousGesture(
                 MagnifyGesture()
@@ -66,9 +68,9 @@ struct PlanTimeline: View {
         }
         .onAppear {
             day = days.contains(day) ? day : (days.first ?? day)
-            jumpToFirstTask()
+            jumpToFirstTask(proxy)
         }
-        .onChange(of: day) { swiped = nil; jumpToFirstTask() }
+        .onChange(of: day) { swiped = nil; jumpToFirstTask(proxy) }
         .confirmationDialog(askPin.map { "Pin “\($0.title)” to \($0.start?.formatted(date: .omitted, time: .shortened) ?? "")?" } ?? "",
                             isPresented: Binding(get: { askPin != nil }, set: { if !$0 { askPin = nil } }),
                             titleVisibility: .visible, presenting: askPin) { task in
@@ -81,14 +83,16 @@ struct PlanTimeline: View {
             Text("A pinned task never moves, even if earlier tasks run late. If you don't pin it, it starts here but can still be pushed later.")
         }
         .animation(.smooth, value: plan.ordered.map(\.start))
+        }
     }
 
     /// Open the day at its first unfinished task (or now, if that's later).
-    private func jumpToFirstTask() {
+    private func jumpToFirstTask(_ proxy: ScrollViewProxy) {
         let first = tasksToday.first { !$0.done }?.start ?? tasksToday.first?.start
-        guard var target = first else { scroll.scrollTo(edge: .top); return }
+        guard var target = first else { proxy.scrollTo(hourRange.0, anchor: .top); return }
         if cal.isDateInToday(day), Date.now > target { target = .now }
-        scroll.scrollTo(y: max(0, y(target, from: hourRange.0) - hourHeight / 2))
+        // the hour before, so a little of what came earlier shows above it
+        proxy.scrollTo(max(hourRange.0, cal.component(.hour, from: target) - 1), anchor: .top)
     }
 
     // MARK: Days

@@ -23,9 +23,9 @@ struct FocusHouseApp: App {
     var body: some Scene {
         WindowGroup {
             TabView {
-                Tab("Home", image: "tab.home") { HomeView() }
-                Tab("Schedule", image: "tab.schedule") { ContentView() }
-                Tab("Calendar", image: "tab.calendar") { CalendarView() }
+                HomeView().tabItem { Label("Home", image: "tab.home") }   // .tabItem, not Tab: Tab needs iOS 18
+                ContentView().tabItem { Label("Schedule", image: "tab.schedule") }
+                CalendarView().tabItem { Label("Calendar", image: "tab.calendar") }
             }
             .tint(.navy)
             .overlay { BrickBurstOverlay() }   // bricks from a check-in, over every tab
@@ -42,7 +42,7 @@ struct FocusHouseApp: App {
                 if phase == .active { WidgetSync.apply(container.mainContext); pullCalendar() }
                 if phase == .background {
                     WidgetSync.write(container.mainContext)
-                    Task { await SiriContext.index(container.mainContext) }
+                    if #available(iOS 27, *) { Task { await SiriContext.index(container.mainContext) } }
                 }
                 // Rest for the house: Screen Time when it's on, else time away from the app.
                 if ScreenTime.isOn {

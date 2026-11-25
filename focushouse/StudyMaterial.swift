@@ -6,12 +6,12 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Vision
 
-@Generable struct MaterialOutline {
+@available(iOS 26, *) @Generable struct MaterialOutline {
     @Guide(description: "The material's sections or topics, in the order they appear", .count(1...8))
     var sections: [MaterialSection]
 }
 
-@Generable struct MaterialSection {
+@available(iOS 26, *) @Generable struct MaterialSection {
     @Guide(description: "Short name of the section or topic, 1 to 5 words, e.g. \"Arenes\" or \"Causes of WW1\"")
     var name: String
     @Guide(description: "Its key subtopics, comma separated, under 12 words")
@@ -22,7 +22,7 @@ import Vision
 /// PDFKit for PDFs with real text, Vision for photos and scanned pages. Long
 /// text is shrunk to one "Name - points" line per section, the shape the
 /// planner turns into one item per section. Files aren't kept, only the text.
-@MainActor enum StudyMaterial {
+@available(iOS 26, *) @MainActor enum StudyMaterial {
     static let rawLimit = 1500    // shorter text goes in as it is
     static let chunkSize = 4000   // characters per outline ask, to fit the small context window
     static let maxChunks = 6      // ponytail: ~24k characters (about 10 pages) read; attach later chapters separately

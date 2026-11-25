@@ -93,7 +93,7 @@ enum Ratings {
                               mine: saved[k]?.mine, nudge: plainNudge(base: base, feeling: check.feeling))
             return save(saved)
         }
-        guard history.count >= Reflections.minAnswers else { return }   // watch the first few first
+        guard #available(iOS 26, *), history.count >= Reflections.minAnswers else { return }   // watch the first few first
         // The latest check-in per title, newest first, up to 15.
         var seen = Set<String>()
         let recent = history.sorted { $0.at > $1.at }.filter { seen.insert(key($0.title)).inserted }.prefix(15)
@@ -123,7 +123,7 @@ enum Ratings {
     /// Asks the on-device model to rate `titles` and saves the answers.
     // ponytail: ratings are never pruned; drop old titles if the store ever gets big.
     @MainActor static func rate(_ titles: [String]) async {
-        guard Planner.isAvailable, !titles.isEmpty else { return }
+        guard Planner.isAvailable, #available(iOS 26, *), !titles.isEmpty else { return }
         let d = UserDefaults.standard
         var saved = load(d.data(forKey: "ratings") ?? Data())
         for chunk in stride(from: 0, to: titles.count, by: 15).map({ Array(titles[$0..<min($0 + 15, titles.count)]) }) {
@@ -149,24 +149,24 @@ enum Ratings {
     }
 }
 
-@Generable struct DraftNudges {
+@available(iOS 26, *) @Generable struct DraftNudges {
     @Guide(description: "One per task, in the same order", .count(1...15))
     var nudges: [DraftNudge]
 }
 
-@Generable struct DraftNudge {
+@available(iOS 26, *) @Generable struct DraftNudge {
     @Guide(description: "The task title exactly as given")
     var title: String
     @Guide(description: "-1 easier than scored, 0 fits, 1 harder than scored", .range(-1...1))
     var change: Int
 }
 
-@Generable struct DraftRatings {
+@available(iOS 26, *) @Generable struct DraftRatings {
     @Guide(description: "One rating per title, in the same order", .count(1...15))
     var ratings: [DraftRating]
 }
 
-@Generable struct DraftRating {
+@available(iOS 26, *) @Generable struct DraftRating {
     @Guide(description: "The title exactly as given")
     var title: String
     @Guide(description: "How demanding it is for a typical student, 1 (very light) to 10 (exam-level)", .range(1...10))

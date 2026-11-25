@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
 /// reminders schema, so the new Siri understands them) with their stress score,
 /// "How's my house?" answers with the house and today's load, and "Remind me to…
 /// in focushouse" adds a to-do. All on device: Siri reads the on-device index.
+/// Reminders and Spotlight need iOS 27; "How's my house?" works from iOS 17.
 
 // MARK: "How's my house?"
 
@@ -52,7 +53,7 @@ struct FocusHouseShortcuts: AppShortcutsProvider {
 // MARK: "Remind me to … in focushouse"
 
 /// Siri's create-reminder action: becomes a to-do on the Schedule tab.
-@AppIntent(schema: .reminders.createReminder)
+@available(iOS 27, *) @AppIntent(schema: .reminders.createReminder)
 struct AddTodoIntent {
     static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
     @Parameter var title: String
@@ -80,7 +81,7 @@ struct AddTodoIntent {
 
 // MARK: Tasks as reminders
 
-@AppEntity(schema: .reminders.reminder)
+@available(iOS 27, *) @AppEntity(schema: .reminders.reminder)
 struct TaskEntity: IndexedEntity {
     static let defaultQuery = TaskQuery()
     var id: String
@@ -127,7 +128,7 @@ struct TaskEntity: IndexedEntity {
     }
 }
 
-struct TaskQuery: EntityStringQuery {
+@available(iOS 27, *) struct TaskQuery: EntityStringQuery {
     @Dependency var container: ModelContainer
 
     @MainActor func entities(for identifiers: [String]) async throws -> [TaskEntity] {
@@ -149,7 +150,7 @@ struct TaskQuery: EntityStringQuery {
     }
 }
 
-@AppEntity(schema: .reminders.list)
+@available(iOS 27, *) @AppEntity(schema: .reminders.list)
 struct TaskListEntity {
     static let defaultQuery = TaskListQuery()
     static let plans = TaskListEntity(id: "plans", name: "Plans", type: .standard)
@@ -167,7 +168,7 @@ struct TaskListEntity {
     var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
 }
 
-struct TaskListQuery: EntityStringQuery {
+@available(iOS 27, *) struct TaskListQuery: EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [TaskListEntity] {
         [TaskListEntity.plans, .todos].filter { identifiers.contains($0.id) }
     }
@@ -177,7 +178,7 @@ struct TaskListQuery: EntityStringQuery {
     func suggestedEntities() async throws -> [TaskListEntity] { [.plans, .todos] }
 }
 
-@AppEntity(schema: .reminders.section)
+@available(iOS 27, *) @AppEntity(schema: .reminders.section)
 struct TaskSectionEntity {
     static let defaultQuery = TaskSectionQuery()
     var id: String
@@ -186,18 +187,18 @@ struct TaskSectionEntity {
     var displayRepresentation: DisplayRepresentation { "Section" }
 }
 
-struct TaskSectionQuery: EntityStringQuery {
+@available(iOS 27, *) struct TaskSectionQuery: EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [TaskSectionEntity] { [] }
     func entities(matching string: String) async throws -> [TaskSectionEntity] { [] }
 }
 
-@AppEnum(schema: .reminders.listType)
+@available(iOS 27, *) @AppEnum(schema: .reminders.listType)
 enum ListKind: String {
     case standard
     static let caseDisplayRepresentations: [ListKind: DisplayRepresentation] = [.standard: "List"]
 }
 
-@AppEntity(schema: .reminders.locationTrigger)
+@available(iOS 27, *) @AppEntity(schema: .reminders.locationTrigger)
 struct PlaceEntity {
     static let defaultQuery = PlaceQuery()
     var id: String
@@ -206,12 +207,12 @@ struct PlaceEntity {
     var displayRepresentation: DisplayRepresentation { "Place" }
 }
 
-struct PlaceQuery: EntityStringQuery {
+@available(iOS 27, *) struct PlaceQuery: EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [PlaceEntity] { [] }
     func entities(matching string: String) async throws -> [PlaceEntity] { [] }
 }
 
-@AppEnum(schema: .reminders.locationTriggerEvent)
+@available(iOS 27, *) @AppEnum(schema: .reminders.locationTriggerEvent)
 enum TriggerEvent: String {
     case arrive, depart
     static let caseDisplayRepresentations: [TriggerEvent: DisplayRepresentation] = [.arrive: "Arrive", .depart: "Leave"]
@@ -235,18 +236,18 @@ enum TriggerEvent: String {
 
     // ponytail: rebuilt from SwiftData on every query; fine for a student's few hundred tasks.
     /// Empty while the phone is locked: task names and stress stay off the Lock Screen.
-    static func entities(_ context: ModelContext) -> [TaskEntity] {
+    @available(iOS 27, *) static func entities(_ context: ModelContext) -> [TaskEntity] {
         guard UIApplication.shared.isProtectedDataAvailable else { return [] }
         let (status, tasks, todos) = status(context)
         return tasks.map { entity($0, status) } + todos.map { entity($0, status) }
     }
 
-    static func entity(_ t: PlanTask, _ status: HouseStatus) -> TaskEntity {
+    @available(iOS 27, *) static func entity(_ t: PlanTask, _ status: HouseStatus) -> TaskEntity {
         make(id: "task-" + t.key, title: t.title, due: t.start, done: t.done, doneAt: t.doneAt, minutes: t.minutes,
              rating: status.rating(t.title, category: t.category), list: .plans)
     }
 
-    static func entity(_ t: TodoItem, _ status: HouseStatus) -> TaskEntity {
+    @available(iOS 27, *) static func entity(_ t: TodoItem, _ status: HouseStatus) -> TaskEntity {
         make(id: "todo-" + todoID(t), title: t.name, due: t.dueDate, done: t.isDone, doneAt: t.doneAt, minutes: House.todoMinutes,
              rating: status.rating(t.name), list: .todos)
     }
@@ -256,7 +257,7 @@ enum TriggerEvent: String {
         (try? JSONEncoder().encode(t.persistentModelID))?.base64EncodedString() ?? ""
     }
 
-    private static func make(id: String, title: String, due: Date?, done: Bool, doneAt: Date?, minutes: Int,
+    @available(iOS 27, *) private static func make(id: String, title: String, due: Date?, done: Bool, doneAt: Date?, minutes: Int,
                              rating: Rating, list: TaskListEntity) -> TaskEntity {
         TaskEntity(id: id, title: title, note: stressLine(rating, minutes: minutes), due: due, doneAt: doneAt,
                    done: done, flagged: rating.score >= 7, list: list,
@@ -269,7 +270,7 @@ enum TriggerEvent: String {
 
     /// Puts the last week and the next month into the on-device Spotlight index,
     /// replacing what was there. Called when the app goes to the background.
-    static func index(_ context: ModelContext, now: Date = .now) async {
+    @available(iOS 27, *) static func index(_ context: ModelContext, now: Date = .now) async {
         guard UIApplication.shared.isProtectedDataAvailable else { return }   // else it would empty the index
         let window = now.addingTimeInterval(-7 * 86_400)...now.addingTimeInterval(30 * 86_400)
         let all = entities(context).filter { e in

@@ -2,7 +2,7 @@ import FoundationModels
 import SwiftUI
 import UIKit
 
-@Generable struct PhotoVerdict {
+@available(iOS 26, *) @Generable struct PhotoVerdict {
     @Guide(description: "What the photo shows, in under 12 words")
     var seen: String
     @Guide(description: "true if the photo shows this task's work, done or in progress, even if messy; false if it's unrelated, blank or unclear")
@@ -17,7 +17,9 @@ import UIKit
 @MainActor enum Proof {
     static let keepDays = 30
     static var hasCamera: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
+    /// Looking at photos needs the iOS 27 model.
     static var canCheck: Bool {
+        guard #available(iOS 27, *) else { return false }
         let model = SystemLanguageModel.default
         return model.availability == .available && model.capabilities.contains(.vision)
     }
@@ -37,16 +39,16 @@ import UIKit
     }
 
     /// Nil when the model can't look at images here, or the check fails.
-    static func check(_ image: UIImage, title: String) async -> PhotoVerdict? {
-        guard canCheck, let cg = image.cgImage else { return nil }
+    static func check(_ image: UIImage, title: String) async -> (matches: Bool, seen: String)? {
+        guard canCheck, #available(iOS 27, *), let cg = image.cgImage else { return nil }
         let session = LanguageModelSession(instructions: """
             You look at a photo a student took after a task and say whether it shows that task's work. \
             Be fair: rough, messy or half-done work counts if it's clearly this task.
             """)
-        return try? await session.respond(to: Prompt {
+        return (try? await session.respond(to: Prompt {
             "Task: \(title)\nDoes this photo show this task's work?"
             Attachment(cg)
-        }, generating: PhotoVerdict.self).content
+        }, generating: PhotoVerdict.self).content).map { ($0.matches, $0.seen) }
     }
 
     // Matched tasks by id, kept after the photo is deleted so the bonus stays.

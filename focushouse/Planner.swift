@@ -1,7 +1,7 @@
 import Foundation
 import FoundationModels
 
-@Generable struct DraftPlan {
+@available(iOS 26, *) @Generable struct DraftPlan {
     @Guide(description: "Short title naming the student's own goal or main to-dos in their words, 2 to 5 words, no full stop, e.g. \"Chemistry exam revision\" or \"Maths hw and essay\". Never a generic name like \"Tuesday to-dos\" or \"My plan\"")
     var title: String
     @Guide(description: "One item per thing the user asked for, in the order they should be done", .count(1...15))
@@ -10,7 +10,7 @@ import FoundationModels
 
 /// One thing the student asked for. Big work comes with subtasks; each subtask
 /// becomes its own scheduled task in the app, grouped under the item's title.
-@Generable struct DraftItem {
+@available(iOS 26, *) @Generable struct DraftItem {
     @Guide(description: "Short, concrete action starting with a verb")
     var title: String
     @Guide(description: "Task category", .anyOf(Planner.categories))
@@ -27,19 +27,19 @@ import FoundationModels
     var subtasks: [DraftStep]
 }
 
-@Generable struct DraftStep {
+@available(iOS 26, *) @Generable struct DraftStep {
     @Guide(description: "Short, concrete action starting with a verb")
     var title: String
     @Guide(description: "Realistic minutes a typical student needs for this step", .range(5...120))
     var minutes: Int
 }
 
-@Generable struct LineChecks {
+@available(iOS 26, *) @Generable struct LineChecks {
     @Guide(description: "One answer per line, in the same order", .count(1...30))
     var lines: [LineCheck]
 }
 
-@Generable struct LineCheck {
+@available(iOS 26, *) @Generable struct LineCheck {
     @Guide(description: "The line exactly as given")
     var line: String
     @Guide(description: "real, impossible or gibberish", .anyOf(["real", "impossible", "gibberish"]))
@@ -52,7 +52,12 @@ enum Planner {
 
     static let priorities = ["high", "normal", "low"]
 
-    static var isAvailable: Bool { SystemLanguageModel.default.availability == .available }
+    /// Apple Intelligence: iOS 26+ on a device that has it turned on. Below iOS 26
+    /// the app runs in manual mode, with every AI feature hidden.
+    static var isAvailable: Bool {
+        guard #available(iOS 26, *) else { return false }
+        return SystemLanguageModel.default.availability == .available
+    }
 
     /// Shared by the first draft and the follow-up asks (dropped lines, thin plans).
     /// Kept short: it shares the small context window with the prompt and the answer.
@@ -81,7 +86,7 @@ enum Planner {
     /// only labels each line: its own rewrites ("launch rocket") and the same rule in the
     /// planner's prompt (it copied the example into unrelated plans) both failed the eval.
     // ponytail: one extra model call (~2 s) per Today plan; skip it for lines it never changes if that hurts.
-    static func realistic(_ input: String, mode: PlanMode) async -> String {
+    @available(iOS 26, *) static func realistic(_ input: String, mode: PlanMode) async -> String {
         let lines = items(input)
         guard mode == .today, !lines.isEmpty else { return input }
         let session = LanguageModelSession(instructions: """
@@ -113,7 +118,7 @@ enum Planner {
     /// Splits the plan's input into tasks. `previous` is the plan the student
     /// rejected with "Start over": the AI is asked for a genuinely different one.
     /// `history`: answered check-ins, so the plan fits how tasks really feel to them.
-    @MainActor static func draft(for plan: Plan, previous: [PlanTask] = [], history: [PlanTask] = []) async throws -> DraftPlan {
+    @available(iOS 26, *) @MainActor static func draft(for plan: Plan, previous: [PlanTask] = [], history: [PlanTask] = []) async throws -> DraftPlan {
         guard !isVague(plan.input), plan.mode == .goal || !items(plan.input).isEmpty else { throw PlannerError.vague }
         guard plan.mode == .today || !needsList(plan.input) || !materialTopics(plan.materials).isEmpty else { throw PlannerError.list }
         if plan.mode == .today, let line = passedTime(items(plan.input), start: plan.start) { throw PlannerError.passed(line) }
@@ -169,7 +174,7 @@ enum Planner {
             var draft: DraftPlan
             do {
                 draft = try await session.respond(to: prompt, generating: DraftPlan.self, options: options).content
-            } catch LanguageModelError.contextSizeExceeded {
+            } catch let e where tooLong(e) {
                 // Short inputs hit this too, when an answer runs away: one fresh try with
                 // the optional extras (saved examples, pace, reflections) left out.
                 session = LanguageModelSession(instructions: instructions)
@@ -251,14 +256,29 @@ enum Planner {
     }
 
     /// The model's errors in words a student can act on.
-    static func friendly(_ error: Error) -> Error {
-        switch error {
-        case LanguageModelError.contextSizeExceeded: PlannerError.tooLong
-        case LanguageModelError.guardrailViolation, LanguageModelError.refusal: PlannerError.blocked
-        case LanguageModelError.unsupportedLanguageOrLocale: PlannerError.language
-        case LanguageModelError.rateLimited, LanguageModelError.timeout: PlannerError.busy
-        default: error
+    @available(iOS 26, *) static func friendly(_ error: Error) -> Error {
+        if #available(iOS 27, *) {
+            switch error {
+            case LanguageModelError.contextSizeExceeded: PlannerError.tooLong
+            case LanguageModelError.guardrailViolation, LanguageModelError.refusal: PlannerError.blocked
+            case LanguageModelError.unsupportedLanguageOrLocale: PlannerError.language
+            case LanguageModelError.rateLimited, LanguageModelError.timeout: PlannerError.busy
+            default: error
+            }
+        } else {   // iOS 26 throws the older error type
+            switch error as? LanguageModelSession.GenerationError {
+            case .exceededContextWindowSize: PlannerError.tooLong
+            case .guardrailViolation, .refusal: PlannerError.blocked
+            case .unsupportedLanguageOrLocale: PlannerError.language
+            case .rateLimited: PlannerError.busy
+            default: error
+            }
         }
+    }
+
+    /// The answer ran out of room, on either iOS's error type.
+    @available(iOS 26, *) static func tooLong(_ error: Error) -> Bool {
+        if case PlannerError.tooLong = friendly(error) { true } else { false }
     }
 
     /// Fixes what the small model gets wrong with to-do lists: it drops items and
@@ -269,7 +289,7 @@ enum Planner {
     // ponytail: word-overlap match; a dropped item sharing a word with an unclaimed task
     // ("clean room" vs "tidy room") counts as kept. Fine for to-do lists.
     @discardableResult
-    static func reconcile(_ lines: [String], in draft: inout DraftPlan) -> [Int] {
+    @available(iOS 26, *) static func reconcile(_ lines: [String], in draft: inout DraftPlan) -> [Int] {
         var restored: [Int] = []
         var claimed = Set<Int>()
         var seen: [Set<String>: Int] = [:]   // a line's words → the item it matched
@@ -392,7 +412,7 @@ enum Planner {
     /// A second, smaller ask for the lines the model dropped, so they get real estimates
     /// instead of 30-minute placeholders. The student's priority stays; on failure the
     /// placeholders stay too.
-    @MainActor static func refill(_ restored: [Int], in draft: inout DraftPlan) async {
+    @available(iOS 26, *) @MainActor static func refill(_ restored: [Int], in draft: inout DraftPlan) async {
         // Without "can wait" or "maybe": the model reads those as leave-it-out.
         let lines = restored.map { cleanTopic(draft.items[$0].title) }
         let prompt = """
@@ -409,7 +429,7 @@ enum Planner {
     /// Puts the follow-up's estimates into the placeholders: by shared words first, then
     /// the rest in order if exactly as many are left on both sides.
     // ponytail: a restored line the follow-up doesn't answer stays a 30-minute placeholder.
-    static func fill(_ restored: [Int], in draft: inout DraftPlan, from extra: [DraftItem]) {
+    @available(iOS 26, *) static func fill(_ restored: [Int], in draft: inout DraftPlan, from extra: [DraftItem]) {
         var taken = Set<Int>()
         var left: [Int] = []
         for i in restored {
@@ -429,7 +449,7 @@ enum Planner {
 
     /// Big items the model left as one block (a 2-hour essay draft) get steps from one
     /// small follow-up ask, scaled to the item's minutes. Nothing changes if it fails.
-    @MainActor static func addSteps(to draft: inout DraftPlan) async {
+    @available(iOS 26, *) @MainActor static func addSteps(to draft: inout DraftPlan) async {
         let big = draft.items.indices.filter { i in
             let item = draft.items[i]
             return item.subtasks.isEmpty && item.minutes > 60 && !["chores", "exercise"].contains(item.category)
@@ -449,7 +469,7 @@ enum Planner {
     /// Copies the follow-up's steps onto the big items (by title, or in order when the
     /// counts match), scaled so they still add up to the item's minutes. For a single
     /// big item the model often answers with the steps as items, not subtasks.
-    static func steps(_ big: [Int], in draft: inout DraftPlan, from answer: [DraftItem]) {
+    @available(iOS 26, *) static func steps(_ big: [Int], in draft: inout DraftPlan, from answer: [DraftItem]) {
         if big.count == 1, answer.count >= 2, answer.allSatisfy({ $0.subtasks.isEmpty }) {
             setSteps(answer.map { DraftStep(title: $0.title, minutes: $0.minutes) }, on: big[0], in: &draft)
             return
@@ -466,7 +486,7 @@ enum Planner {
         }
     }
 
-    private static func setSteps(_ steps: [DraftStep], on i: Int, in draft: inout DraftPlan) {
+    @available(iOS 26, *) private static func setSteps(_ steps: [DraftStep], on i: Int, in draft: inout DraftPlan) {
         let sum = max(steps.map(\.minutes).reduce(0, +), 1)
         let total = draft.items[i].minutes
         draft.items[i].subtasks = steps.prefix(5).map { step in
@@ -482,7 +502,7 @@ enum Planner {
 
     /// Takes the follow-up's estimate, keeping the student's wording as the title: the
     /// model's title can lose the subject ("Draft essay outline" for "econs essay").
-    private static func use(_ found: DraftItem, for i: Int, in draft: inout DraftPlan) {
+    @available(iOS 26, *) private static func use(_ found: DraftItem, for i: Int, in draft: inout DraftPlan) {
         draft.items[i].title = studentTitle(draft.items[i].title)
         draft.items[i].category = found.category
         draft.items[i].minutes = found.minutes
@@ -506,7 +526,7 @@ enum Planner {
 
     /// Chores and one-step items stay as a single task: no subtasks. An exercise
     /// session is at most an hour (the model plans 2-hour runs for beginners).
-    static func tidied(_ draft: DraftPlan) -> DraftPlan {
+    @available(iOS 26, *) static func tidied(_ draft: DraftPlan) -> DraftPlan {
         var draft = draft
         for i in draft.items.indices where draft.items[i].category == "chores" || draft.items[i].subtasks.count < 2 {
             draft.items[i].subtasks = []
@@ -545,7 +565,7 @@ enum Planner {
 
 extension Planner {
     /// Re-plan with AI: the student is behind, so rebuild what's left.
-    @MainActor static func replan(_ plan: Plan) async throws -> DraftPlan {
+    @available(iOS 26, *) @MainActor static func replan(_ plan: Plan) async throws -> DraftPlan {
         let left = plan.ordered.filter { !$0.done }.map { t in
             "- \(t.title) (\(t.minutes) min, \(priorities[min(max(t.priority, 0), 2)]) priority"
                 + (t.parent.isEmpty ? ")" : ", part of: \(t.parent))")
@@ -740,12 +760,12 @@ extension Planner {
             || (short.count >= 4 && long.hasPrefix(short))
     }
 
-    static func covers(_ keys: Set<String>, _ item: DraftItem) -> Bool {
+    @available(iOS 26, *) static func covers(_ keys: Set<String>, _ item: DraftItem) -> Bool {
         let text = words(([item.title] + item.subtasks.map(\.title)).joined(separator: " "))
         return keys.contains { key in text.contains { similar(key, $0) } }
     }
 
-    static func minutes(_ item: DraftItem) -> Int {
+    @available(iOS 26, *) static func minutes(_ item: DraftItem) -> Int {
         item.subtasks.isEmpty ? item.minutes : item.subtasks.map(\.minutes).reduce(0, +)
     }
 
@@ -772,7 +792,7 @@ extension Planner {
     /// Adds an item for each goal topic the model left out: typical length for this plan,
     /// on its lightest day, slotted in by day so the schedule keeps the days in order.
     /// `inOrder` (study sections): right after the item for the section before it instead.
-    static func cover(_ topics: [String], goal: String, days: Int, inOrder: Bool = false, in draft: inout DraftPlan) {
+    @available(iOS 26, *) static func cover(_ topics: [String], goal: String, days: Int, inOrder: Bool = false, in draft: inout DraftPlan) {
         for (k, topic) in topics.enumerated() {
             let keys = keyWords(topic, among: topics, goal: goal)
             guard !keys.isEmpty, !draft.items.contains(where: { covers(keys, $0) }) else { continue }
@@ -800,13 +820,13 @@ extension Planner {
         }
     }
 
-    static func totalMinutes(_ draft: DraftPlan) -> Int { draft.items.map(minutes).reduce(0, +) }
+    @available(iOS 26, *) static func totalMinutes(_ draft: DraftPlan) -> Int { draft.items.map(minutes).reduce(0, +) }
 
     private static let deskWork: Set<String> = ["homework", "study", "revision", "reading", "writing", "project"]
 
     /// Minutes a study goal over 2+ days should have at least (50 a day); nil when the plan
     /// already has that much, or the goal isn't desk work (a run, tidying a room).
-    static func effortFloor(_ draft: DraftPlan, days: Int) -> Int? {
+    @available(iOS 26, *) static func effortFloor(_ draft: DraftPlan, days: Int) -> Int? {
         guard days >= 2, !draft.items.isEmpty else { return nil }
         let study = draft.items.filter { deskWork.contains($0.category) }.count
         guard study * 2 > draft.items.count else { return nil }
@@ -816,7 +836,7 @@ extension Planner {
 
     /// The small model packs a long goal into its first day or two. When it uses half the
     /// days or fewer, items move to the day where their share of the work starts, in order.
-    static func spread(_ draft: inout DraftPlan, days: Int) {
+    @available(iOS 26, *) static func spread(_ draft: inout DraftPlan, days: Int) {
         let used = Set(draft.items.map(\.day)).count
         guard days > 1, used < min(days, draft.items.count), used * 2 <= days else { return }
         let total = max(totalMinutes(draft), 1)
@@ -829,7 +849,7 @@ extension Planner {
 
     /// Goal priorities come only from words the student wrote next to a part
     /// ("chemistry is urgent, history can wait"); everything else is normal.
-    static func goalPriorities(_ topics: [String], goal: String, in draft: inout DraftPlan) {
+    @available(iOS 26, *) static func goalPriorities(_ topics: [String], goal: String, in draft: inout DraftPlan) {
         for i in draft.items.indices { draft.items[i].priority = "normal" }
         for topic in topics {
             guard let marked = marker(topic, strict: true) else { continue }

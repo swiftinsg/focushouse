@@ -106,7 +106,7 @@ private struct TourOverlay: View {
                         .position(x: hole.midX, y: hole.midY)
                         .allowsHitTesting(false)
                     Image(systemName: "arrow.down").font(.largeTitle.weight(.heavy)).foregroundStyle(Color.gold)
-                        .symbolEffect(.bounce, options: .repeating, isActive: !reduceMotion)
+                        .bouncing(!reduceMotion)
                         .position(x: hole.midX, y: hole.minY - 28)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
@@ -145,7 +145,7 @@ private struct TourOverlay: View {
 
     private func arrowImage(_ symbol: String, _ edge: Alignment) -> some View {
         Image(systemName: symbol).font(.largeTitle.weight(.bold)).foregroundStyle(Color.gold)
-            .symbolEffect(.bounce, options: .repeating, isActive: !reduceMotion)
+            .bouncing(!reduceMotion)
             .frame(maxWidth: .infinity, alignment: edge == .topTrailing ? .trailing : edge == .bottom ? .center : .leading)
             .accessibilityHidden(true)
     }
@@ -183,5 +183,13 @@ private struct Spotlight: Shape {
         var p = Path(rect)
         p.addRect(hole)
         return p
+    }
+}
+
+private extension View {
+    /// The tour's arrows bounce on repeat (iOS 18+); iOS 17 can only pulse them.
+    @ViewBuilder func bouncing(_ on: Bool) -> some View {
+        if #available(iOS 18, *) { symbolEffect(.bounce, options: .repeating, isActive: on) }
+        else { symbolEffect(.pulse, options: .repeating, isActive: on) }
     }
 }

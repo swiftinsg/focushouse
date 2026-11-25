@@ -121,11 +121,11 @@ struct NewPlanView: View {
                         guard !photos.isEmpty else { return }
                         let items = photos
                         photos = []
-                        Task { await attach { try await StudyMaterial.text(fromPhotos: items) } }
+                        if #available(iOS 26, *) { Task { await attach { try await StudyMaterial.text(fromPhotos: items) } } }
                     }
                     .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf, .image], allowsMultipleSelection: true) { result in
                         switch result {
-                        case .success(let urls): Task { await attach { try await StudyMaterial.text(fromFiles: urls) } }
+                        case .success(let urls): if #available(iOS 26, *) { Task { await attach { try await StudyMaterial.text(fromFiles: urls) } } }
                         case .failure(let error): materialNote = error.localizedDescription
                         }
                     }
@@ -143,7 +143,7 @@ struct NewPlanView: View {
                     VStack(spacing: 12) {
                         if Planner.isAvailable {
                             Button {
-                                Task { await makePlan() }
+                                Task { if #available(iOS 26, *) { await makePlan() } }
                             } label: {
                                 HStack(spacing: 8) {
                                     if !isWorking { Image(systemName: "sparkles") }
@@ -191,7 +191,7 @@ struct NewPlanView: View {
         return max(1, (cal.dateComponents([.day], from: cal.startOfDay(for: start), to: cal.startOfDay(for: due)).day ?? 0) + 1)
     }
 
-    private func makePlan() async {
+    @available(iOS 26, *) private func makePlan() async {
         isWorking = true
         error = nil
         question = nil
@@ -216,7 +216,7 @@ struct NewPlanView: View {
     }
 
     /// Adds an attachment's text (or its outline) under what's already in the box.
-    private func attach(_ read: () async throws -> String) async {
+    @available(iOS 26, *) private func attach(_ read: () async throws -> String) async {
         reading = true
         materialNote = nil
         defer { reading = false }
@@ -252,12 +252,12 @@ struct NewPlanView: View {
 
 extension Plan {
     /// Swap in the model's tasks and schedule them.
-    @MainActor func replaceTasks(with draft: DraftPlan) {
+    @available(iOS 26, *) @MainActor func replaceTasks(with draft: DraftPlan) {
         replace(tasks, with: draft)
     }
 
     /// Re-plan with AI: rebuild only the unfinished tasks, starting now.
-    @MainActor func replaceRemaining(with draft: DraftPlan) {
+    @available(iOS 26, *) @MainActor func replaceRemaining(with draft: DraftPlan) {
         let now = Date.nextFiveMinutes
         if now > start {
             let cal = Calendar.current
@@ -268,7 +268,7 @@ extension Plan {
         replace(tasks.filter { !$0.done }, with: draft)
     }
 
-    @MainActor private func replace(_ old: [PlanTask], with draft: DraftPlan) {
+    @available(iOS 26, *) @MainActor private func replace(_ old: [PlanTask], with draft: DraftPlan) {
         CalendarSync.remove(old)
         Reminders.cancel(old)
         KeptTask.keep(old)

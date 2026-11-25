@@ -2,7 +2,7 @@ name: focushouse
 options:
   bundleIdPrefix: sg.swiftin
   deploymentTarget:
-    iOS: "27.2"
+    iOS: "17.0"
   xcodeVersion: "27.2"   # Xcode's "recommended settings" check, so it stops asking
 settings:
   base:   # Xcode 27 recommended settings
@@ -10,7 +10,7 @@ settings:
     STRING_CATALOG_GENERATE_SYMBOLS: YES
     MARKETING_VERSION: "1.0"   # app and extensions must match for App Store upload
     CURRENT_PROJECT_VERSION: "1"
-    IPHONEOS_DEPLOYMENT_TARGET: "27.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
 settingGroups:   # Tristan's App Store setup: swiftin team, iPhone only
   phone:
     DEVELOPMENT_TEAM: XL5JK4F896
@@ -117,6 +117,7 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "6.0"
+        IPHONEOS_DEPLOYMENT_TARGET: "27.0"   # tests run on the newest simulator, with the AI code
 schemes:
   focushouse:
     build:

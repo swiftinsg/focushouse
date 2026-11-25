@@ -189,7 +189,7 @@ enum Reflections {
     /// 7 days of check-ins, refreshed at most once a day (UserDefaults "insight").
     @MainActor static func refreshInsight(_ history: [PlanTask], now: Date = .now) async {
         let d = UserDefaults.standard
-        guard Planner.isAvailable, now.timeIntervalSince1970 - d.double(forKey: "insightAt") >= 86_400 else { return }
+        guard Planner.isAvailable, #available(iOS 26, *), now.timeIntervalSince1970 - d.double(forKey: "insightAt") >= 86_400 else { return }
         // ponytail: last 25 check-ins of the week, to fit the small model's context.
         let lines = weekLines(history, now: now).suffix(25)
         guard lines.count >= minAnswers else { return }
@@ -368,7 +368,7 @@ struct WeekStats: Equatable {
     }
 }
 
-@Generable struct DraftSummary {
+@available(iOS 26, *) @Generable struct DraftSummary {
     @Guide(description: "2 to 4 short sentences on how the week went: stress, rest, and what weighed on them most. Only facts given, no new numbers.")
     var summary: String
     @Guide(description: "One warm, specific sentence of encouragement or a gentle suggestion")
@@ -387,8 +387,8 @@ extension Reflections {
         """
 
     /// The AI's words for `stats`; nil without Apple Intelligence or on failure.
-    @MainActor static func summary(_ stats: WeekStats) async -> DraftSummary? {
-        guard Planner.isAvailable else { return nil }
+    @MainActor static func summary(_ stats: WeekStats) async -> (summary: String, encouragement: String)? {
+        guard Planner.isAvailable, #available(iOS 26, *) else { return nil }
         var facts = stats.facts
         for _ in 0..<2 {
             let prompt = "This week (last 7 days, ending today):\n" + facts.joined(separator: "\n")
@@ -397,7 +397,7 @@ extension Reflections {
                     .respond(to: prompt, generating: DraftSummary.self).content
                 // The model sometimes pastes the other field's label in ("encouragement: …").
                 s.summary = s.summary.replacing(/(?is)\n*\s*encouragement:.*$/, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-                return s
+                return (s.summary, s.encouragement)
             } catch {
                 // Apple's safety filter blocks a week with a funeral or hospital visit in it:
                 // try once more with those titles left general.
