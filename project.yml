@@ -9,7 +9,7 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     STRING_CATALOG_GENERATE_SYMBOLS: YES
     MARKETING_VERSION: "1.0"   # app and extensions must match for App Store upload
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "2"   # bump for every upload
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
 settingGroups:   # Tristan's App Store setup: swiftin team, iPhone only
   phone:
@@ -95,6 +95,8 @@ targets:
       path: focushouseWidgets/Info.plist
       properties:
         CFBundleDisplayName: focushouse
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
