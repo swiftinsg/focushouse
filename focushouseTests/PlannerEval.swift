@@ -193,7 +193,7 @@ enum AIEval {
         defer { Self.restore(stash) }
         // AI_EVAL_ONLY=Nonsense runs just the cases whose name starts with it.
         let cases = Self.cases.filter { $0.name.hasPrefix(ProcessInfo.processInfo.environment["AI_EVAL_ONLY"] ?? "") }
-        var lines = ["# focushouse AI eval", "",
+        var lines = ["# bricked up AI eval", "",
                      "\(Date.now.formatted()) · \(cases.count) cases × \(Self.runs) runs", ""]
         var passed = 0, total = 0
         var byKind: [String: (pass: Int, all: Int)] = [:]
@@ -508,7 +508,7 @@ enum AIEval {
 
     @Test(.timeLimit(.minutes(30)))
     func accuracy() async throws {
-        var lines = ["# focushouse weekly summary eval", "", "\(Date.now.formatted()) · \(Self.cases.count) cases × \(PlannerEval.runs) runs", ""]
+        var lines = ["# bricked up weekly summary eval", "", "\(Date.now.formatted()) · \(Self.cases.count) cases × \(PlannerEval.runs) runs", ""]
         var passed = 0, total = 0
         for c in Self.cases {
             let stats = WeekStats(items: c.items, rest: { date in

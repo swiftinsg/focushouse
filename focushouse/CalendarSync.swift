@@ -45,7 +45,7 @@ import EventKit
             event.title = task.title
             event.startDate = start
             event.endDate = end
-            event.notes = "From focushouse · \(plan.title)"
+            event.notes = "From bricked up · \(plan.title)"
             try store.save(event, span: .thisEvent, commit: false)
             task.eventID = event.eventIdentifier
             count += 1
@@ -124,7 +124,7 @@ enum CalendarError: LocalizedError {
     case noAccess, noCalendar
     var errorDescription: String? {
         switch self {
-        case .noAccess: "focushouse needs Calendar access. Turn it on in Settings → Apps → focushouse."
+        case .noAccess: "bricked up needs Calendar access. Turn it on in Settings → Apps → bricked up."
         case .noCalendar: "There's no calendar to add events to."
         }
     }

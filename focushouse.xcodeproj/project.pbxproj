@@ -129,6 +129,7 @@
 		0FEFBB34BDDD22D97DFEBAB6 /* Hints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hints.swift; sourceTree = "<group>"; };
 		15CA6253454E1C7253F1A961 /* furniture.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = furniture.json; sourceTree = "<group>"; };
 		1B5798B29D351AC822D6EC73 /* PlanTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanTimeline.swift; sourceTree = "<group>"; };
+		1D24101430B8A2DD00198FAE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		216157960E97327CF5D0A32E /* NewPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewPlanView.swift; sourceTree = "<group>"; };
 		216D92EE08BE865626356812 /* RestMonitor.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = RestMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		264D348FE2D5FCA52189074D /* Planner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Planner.swift; sourceTree = "<group>"; };
@@ -151,7 +152,7 @@
 		64F92ADDF3F74CBB77A02ACD /* PlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanView.swift; sourceTree = "<group>"; };
 		6A4AA7204167A77945CC2395 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
 		6E75D038DBE0B793FD049BAC /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
-		7446DB0920F9D5B951F45795 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		7446DB0920F9D5B951F45795 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		7535BBAB426B0F10326A64D6 /* TimetableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimetableTests.swift; sourceTree = "<group>"; };
 		7D8F166292F19E0C9CA30987 /* NewTaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTaskView.swift; sourceTree = "<group>"; };
 		7DD7396971A5E762C1CA9D89 /* furniture_more.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = furniture_more.json; sourceTree = "<group>"; };
@@ -172,7 +173,7 @@
 		B1890E86596981335E25E0E0 /* RestMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestMonitor.swift; sourceTree = "<group>"; };
 		B5FE25A82521B676DF443D62 /* SiriTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriTests.swift; sourceTree = "<group>"; };
 		BCAC49C40A4BB08DCECBD81C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		C1071DB5AD440B91FE9AFACF /* focushouse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = focushouse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C1071DB5AD440B91FE9AFACF /* focushouse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = focushouse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C1CD91A0CDE5CA574A273977 /* CalendarSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSync.swift; sourceTree = "<group>"; };
 		C315DA44F96EC043EDA1C801 /* Reminders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminders.swift; sourceTree = "<group>"; };
 		C35969715D056595DBCEF12B /* TodoItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoItem.swift; sourceTree = "<group>"; };
@@ -264,6 +265,7 @@
 		A272FD419752062AC2426260 /* focushouse */ = {
 			isa = PBXGroup;
 			children = (
+				1D24101430B8A2DD00198FAE /* Info.plist */,
 				ABCE8B42060DDB0EEAE1D1F2 /* Assets.xcassets */,
 				C83D38C3246B36AB6D14BB4E /* BrickBurst.swift */,
 				DAC6347E384FCA391782DADE /* BrickLoader.swift */,
@@ -876,11 +878,13 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = XL5JK4F896;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = focushouse;
+				INFOPLIST_FILE = focushouse/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "bricked up";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "focushouse plans around your calendar events and can add your tasks to Calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Take an optional photo of finished work at check-in. It stays on your phone.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -906,11 +910,13 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = XL5JK4F896;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = focushouse;
+				INFOPLIST_FILE = focushouse/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "bricked up";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "focushouse plans around your calendar events and can add your tasks to Calendar.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Take an optional photo of finished work at check-in. It stays on your phone.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

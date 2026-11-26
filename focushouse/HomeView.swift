@@ -136,7 +136,7 @@ struct HomeView: View {
                     Button("Settings", systemImage: "gearshape") { showSettings = true }
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("focushouse").font(.pixel(22, relativeTo: .headline).weight(.bold))
+                    Text("bricked up").font(.pixel(22, relativeTo: .headline).weight(.bold))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     BrickCount(value: max(0, status.earned - Shop.spent(Shop.owned(ownedRaw))))

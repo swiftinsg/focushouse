@@ -72,7 +72,7 @@ import WidgetKit
         try? context.save()
     }
 
-    /// Done on a widget opens `focushouse://done/<task>`; the check-in sheet
+    /// Done on a widget opens `brickedup://done/<task>`; the check-in sheet
     /// asks how it went before any bricks are given.
     static func open(_ url: URL, _ context: ModelContext) {
         guard url.host() == "done", let task = task(url.lastPathComponent, context) else { return }

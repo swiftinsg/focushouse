@@ -256,7 +256,7 @@ struct HouseView: View {
                     Spacer(minLength: 0)
                     HStack(spacing: 6) {
                         // Opens the app: bricks only come once "How did it go?" is answered.
-                        Link(destination: URL(string: "focushouse://done/\(next.id)")!) { chip("Done", "checkmark") }
+                        Link(destination: URL(string: "brickedup://done/\(next.id)")!) { chip("Done", "checkmark") }
                         Button(intent: MoreTimeIntent(id: next.id)) { chip("+15", "clock") }
                         Button(intent: BreakIntent(id: next.id)) { chip("Break", "moon.zzz") }
                     }

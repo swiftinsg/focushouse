@@ -72,7 +72,7 @@ struct SettingsView: View {
                 } footer: {
                     Text(screenTimeRest
                          ? "Rest is \(HomeView.duration(TimeInterval(restMinBreak * 60))) or more in a row without using your phone (counted in whole hours). \(Int(House.restGoal / 3600)) hours of rest in a day repairs your house a step. Tasks done with your phone down the whole time earn 50% more bricks."
-                         : "Rest is \(HomeView.duration(TimeInterval(restMinBreak * 60))) or more in a row away from focushouse (at least 15 min). It can't see other apps, so turn on Screen Time to count only time off your whole phone.")
+                         : "Rest is \(HomeView.duration(TimeInterval(restMinBreak * 60))) or more in a row away from bricked up (at least 15 min). It can't see other apps, so turn on Screen Time to count only time off your whole phone.")
                 }
                 Section {
                     Toggle("Weekly summary", isOn: $summaryOn)
